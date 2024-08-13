@@ -1,0 +1,94 @@
+#include "RendererSolid.h"
+#include <array>
+
+constexpr const char* vertex_shader_spv_path = "shaders/spir-v/solid_vert.spv";
+constexpr const char* fragment_shader_spv_path = "shaders/spir-v/solid_frag.spv";
+
+RendererSolid::RendererSolid(const RendererSolidCreateInfo* create_info)
+{
+	create_descriptor_tools(create_info);
+	create_pipeline(create_info);
+}
+
+void RendererSolid::create_descriptor_tools(const RendererSolidCreateInfo* create_info) {
+	/*{
+		std::array<VkDescriptorPoolSize, 1> pool_sizes{};
+		pool_sizes[0].descriptorCount = 1;
+		pool_sizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+
+		VkDescriptorPoolCreateInfo create_info{};
+		create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+		create_info.pPoolSizes = pool_sizes.data();
+		create_info.poolSizeCount = pool_sizes.size();
+		create_info.maxSets = 1;
+		VK_ASSERT(vkCreateDescriptorPool(_device, &create_info, nullptr, &_descriptor_pool), "vkCreateDescriptorPool(), RendererSolid - FAILED");
+		LOG_STATUS("Created RendererSolid descriptor pool.");
+	}
+
+	{
+
+		VkDescriptorSetLayoutCreateInfo create_info{};
+		create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+		VK_ASSERT(vkCreateDescriptorSetLayout(_device, &create_info, nullptr, &_descriptor_set_layout), "vkCreateDescriptorSetLayout(), RendererSolid - FAILED");
+	}*/
+
+	{
+		VkPipelineLayoutCreateInfo create_info{};
+		create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+
+		VK_ASSERT(vkCreatePipelineLayout(Core::get_device(), &create_info, nullptr, &_pipeline_layout), "vkCreatePipelineLayout() RendererSolid - FAILED");
+	}
+}
+
+void RendererSolid::create_pipeline(const RendererSolidCreateInfo* renderer_create_info) {
+	VkShaderModule vertex_shader = utils::create_shader_module(vertex_shader_spv_path),
+		fragment_shader = utils::create_shader_module(fragment_shader_spv_path);
+
+	std::array<VkPipelineShaderStageCreateInfo, 2> shader_stages{
+		utils::set_pipeline_shader_stage(vertex_shader,VK_SHADER_STAGE_VERTEX_BIT),
+		utils::set_pipeline_shader_stage(fragment_shader,VK_SHADER_STAGE_FRAGMENT_BIT)
+	};
+
+	auto input_assembly = utils::set_pipeline_input_assembly_state(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+	std::vector<VkVertexInputAttributeDescription> empty_attribute;
+	std::vector<VkVertexInputBindingDescription> empty_binding;
+	auto vertex_input = utils::set_pipeline_vertex_input_state(empty_attribute, empty_binding);
+	auto viewport = utils::set_pipeline_viewport_state(1, 1);
+	std::vector<VkDynamicState> dynamic_states{ VK_DYNAMIC_STATE_SCISSOR, VK_DYNAMIC_STATE_VIEWPORT };
+	auto dynamic = utils::set_pipeline_dynamic_state(dynamic_states);
+	auto rasterization = utils::set_pipeline_rasterization_state(VK_CULL_MODE_NONE);
+	auto multisample = utils::set_pipeline_multisample_state();
+
+	auto color_blend_attachment = utils::set_pipeline_color_blend_attachment_state();
+	std::vector<VkPipelineColorBlendAttachmentState> color_blend_attachments{ color_blend_attachment };
+	auto color_blend = utils::set_pipeline_color_blend_state(color_blend_attachments);
+
+	VkGraphicsPipelineCreateInfo create_info{};
+	create_info.layout = _pipeline_layout;
+	create_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+	create_info.subpass = 0;
+	create_info.renderPass = renderer_create_info->render_pass;
+	create_info.pStages = shader_stages.data();
+	create_info.stageCount = shader_stages.size();
+	
+	create_info.pInputAssemblyState = &input_assembly;
+	create_info.pVertexInputState = &vertex_input;
+	create_info.pViewportState = &viewport;
+	create_info.pTessellationState = nullptr;
+	create_info.pDynamicState = &dynamic;
+	create_info.pRasterizationState = &rasterization;
+	create_info.pMultisampleState = &multisample;
+	create_info.pDepthStencilState = nullptr;
+	create_info.pColorBlendState = &color_blend;
+
+	VK_ASSERT(vkCreateGraphicsPipelines(Core::get_device(), nullptr, 1, &create_info, nullptr, &_graphics_pipeline), "vkCreateGraphicsPipelines() RendererSolid - FAILED");
+
+	vkDestroyShaderModule(Core::get_device(), vertex_shader, nullptr);
+	vkDestroyShaderModule(Core::get_device(), fragment_shader, nullptr);
+}
+
+void RendererSolid::fill_command_buffer(VkCommandBuffer command_buffer) {
+	vkCmdDraw(command_buffer, 3, 1, 0, 0);
+}
+
+RendererSolid::~RendererSolid() {}

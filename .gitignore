@@ -1,0 +1,7 @@
+.vs/
+/out
+*.json
+*.exe
+*.ilk
+*.pdb
+*.bat

@@ -88,6 +88,7 @@ void RendererSolid::create_pipeline(const RendererSolidCreateInfo* renderer_crea
 }
 
 void RendererSolid::fill_command_buffer(VkCommandBuffer command_buffer) {
+	vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _graphics_pipeline);
 	vkCmdDraw(command_buffer, 3, 1, 0, 0);
 }
 

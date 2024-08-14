@@ -1,6 +1,10 @@
 add_library(renderer
 	"RendererApplication.h"
 	"RendererApplication.cpp"
+	"CommandManager.h"
+	"CommandManager.cpp"
+	"SyncManager.h"
+	"SyncManager.cpp"
 
 	"tools/Core.cpp"
 	"tools/Core.h"

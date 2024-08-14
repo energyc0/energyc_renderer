@@ -68,5 +68,30 @@ void RenderUnitSolid::create_framebuffers() {
 }
 
 void RenderUnitSolid::fill_command_buffer(VkCommandBuffer command_buffer) {
+	VkClearValue clear_value{};
+	clear_value.color = { 0.0f,0.0f,0.0f };
+	VkRenderPassBeginInfo begin_info{};
+	begin_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+	begin_info.clearValueCount = 1;
+	begin_info.pClearValues = &clear_value;
+	begin_info.framebuffer = _framebuffer->get_framebuffer();
+	begin_info.renderPass = _render_pass;
+	begin_info.renderArea.offset = { 0,0 };
+	begin_info.renderArea.extent = { _framebuffer->get_width(), _framebuffer->get_height() };
 
+	vkCmdBeginRenderPass(command_buffer, &begin_info, VK_SUBPASS_CONTENTS_INLINE);
+
+	VkViewport viewport{};
+	viewport.minDepth = 0.0f;
+	viewport.maxDepth = 1.0f;
+	viewport.x = 0.0f;
+	viewport.y = 0.0f;
+	viewport.width = _framebuffer->get_width();
+	viewport.height = _framebuffer->get_height();
+	vkCmdSetViewport(command_buffer, 0, 1, &viewport);
+	vkCmdSetScissor(command_buffer, 0, 1, &begin_info.renderArea);
+
+	_renderer_solid->fill_command_buffer(command_buffer);
+
+	vkCmdEndRenderPass(command_buffer);
 }

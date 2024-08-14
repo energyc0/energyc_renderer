@@ -2,8 +2,8 @@
 
 const vec2 vertices[] = {
     vec2(0.5, 0.5),
-    vec2(0.5, 0.5),
-    vec2(0.5, 0.5)
+    vec2(-0.5, 0.5),
+    vec2(0.0, 0.0)
 };
 
 const vec3 colors[] = {

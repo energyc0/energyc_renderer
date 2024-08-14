@@ -32,6 +32,8 @@ Core::Core(GLFWwindow* window, const char* application_name, const char* engine_
 	pick_physical_device();
 	create_device(available_layers);
 	create_swapchain(window);
+	_swapchain_info.image_index = 0;
+	_swapchain_info.current_frame = 0;
 }
 
 void Core::create_instance(GLFWwindow* window, const char* application_name, const char* engine_name, std::vector<const char*> available_layers) {
@@ -339,7 +341,6 @@ void Core::create_swapchain(GLFWwindow* window) {
 
 
 	vkGetSwapchainImagesKHR(_device, _swapchain, &_swapchain_info.image_count, nullptr);
-	_swapchain_info.image_index = 0;
 }
 
 std::vector<VkImage> Core::get_swapchain_images() noexcept {

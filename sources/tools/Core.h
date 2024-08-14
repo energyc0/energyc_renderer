@@ -11,9 +11,9 @@ private:
 	VkDevice _device = VK_NULL_HANDLE;
 	VkSwapchainKHR _swapchain = VK_NULL_HANDLE;
 
-	uint32_t _present_queue_family_index = 0;
+	uint32_t _present_queue_family_index = UINT32_MAX;
 	VkQueue _present_queue = VK_NULL_HANDLE;
-	uint32_t _graphics_queue_family_index = 0;
+	uint32_t _graphics_queue_family_index = UINT32_MAX;
 	VkQueue _graphics_queue = VK_NULL_HANDLE;
 
 	struct SwapchainInfo {
@@ -22,6 +22,7 @@ private:
 		VkFormat format;
 		uint32_t image_count;
 		uint32_t image_index;
+		uint32_t current_frame;
 	};
 	SwapchainInfo _swapchain_info;
 
@@ -34,11 +35,36 @@ public:
 	static inline VkDevice get_device() noexcept { return core_ptr->_device; }
 	static inline VkSwapchainKHR get_swapchain() noexcept { return core_ptr->_swapchain; }
 
+	static inline VkQueue get_graphics_queue() noexcept { return core_ptr->_graphics_queue; }
+	static inline VkQueue get_present_queue() noexcept { return core_ptr->_present_queue; }
+	static inline uint32_t get_graphics_queue_family_index() noexcept { return core_ptr->_graphics_queue_family_index; }
+	static inline uint32_t get_present_queue_family_index() noexcept { return core_ptr->_present_queue_family_index; }
+
 	static inline uint32_t get_swapchain_width() noexcept { return core_ptr->_swapchain_info.width; }
 	static inline uint32_t get_swapchain_height() noexcept { return core_ptr->_swapchain_info.height; }
 	static inline VkFormat get_swapchain_format() noexcept { return core_ptr->_swapchain_info.format; }
 	static inline uint32_t get_swapchain_image_count() noexcept { return core_ptr->_swapchain_info.image_count; }
 	static inline uint32_t get_image_index() noexcept { return core_ptr->_swapchain_info.image_index; }
+	static inline uint32_t get_current_frame() noexcept { return core_ptr->_swapchain_info.current_frame; }
+
+	inline VkResult acquire_next_image(VkSemaphore semaphore, VkFence fence) noexcept{
+		return vkAcquireNextImageKHR(_device, _swapchain, UINT32_MAX, semaphore, fence, &_swapchain_info.image_index);
+	}
+	inline VkResult queue_present(const std::vector<VkSemaphore>& wait_semaphores) {
+		VkPresentInfoKHR present_info{};
+		present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+		present_info.pImageIndices = &_swapchain_info.image_index;
+		present_info.swapchainCount = 1;
+		present_info.pSwapchains = &_swapchain;
+		present_info.waitSemaphoreCount = wait_semaphores.size();
+		present_info.pWaitSemaphores = wait_semaphores.data();
+		return vkQueuePresentKHR(Core::get_graphics_queue(), &present_info);
+	}
+
+	inline void next_frame() noexcept {
+		_swapchain_info.current_frame = (_swapchain_info.current_frame + 1) % _swapchain_info.image_count;
+	};
+
 
 	static std::vector<VkImage> get_swapchain_images() noexcept;
 	~Core();

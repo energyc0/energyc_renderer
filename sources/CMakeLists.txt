@@ -1,10 +1,16 @@
+#sources
 add_library(renderer
-	"RendererApplication.h"
-	"RendererApplication.cpp"
-	"CommandManager.h"
-	"CommandManager.cpp"
-	"SyncManager.h"
-	"SyncManager.cpp"
+	"managers/RendererApplication.h"
+	"managers/RendererApplication.cpp"
+	"managers/CommandManager.h"
+	"managers/CommandManager.cpp"
+	"managers/SyncManager.h"
+	"managers/SyncManager.cpp"
+
+	"scene/Scene.h"
+	"scene/Scene.cpp"
+	"scene/SceneObject.h"
+	"scene/SceneObject.cpp"
 
 	"tools/Core.cpp"
 	"tools/Core.h"
@@ -33,6 +39,10 @@ target_include_directories(renderer PUBLIC
 	"${CMAKE_CURRENT_LIST_DIR}"
 	"${CMAKE_CURRENT_LIST_DIR}/other"
 	"${CMAKE_CURRENT_LIST_DIR}/render_units"
-	"${CMAKE_CURRENT_LIST_DIR}/tools")
+	"${CMAKE_CURRENT_LIST_DIR}/tools"
+	"${CMAKE_CURRENT_LIST_DIR}/scene"
+	"${CMAKE_CURRENT_LIST_DIR}/managers"
+)
+	
 
 add_library(core::renderer ALIAS renderer)

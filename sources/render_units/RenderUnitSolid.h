@@ -13,7 +13,7 @@ private:
 	virtual void create_framebuffers();
 
 public:
-	RenderUnitSolid();
+	RenderUnitSolid(class Scene& scene);
 
 	virtual void fill_command_buffer(VkCommandBuffer command_buffer);
 

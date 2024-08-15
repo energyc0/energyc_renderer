@@ -3,7 +3,12 @@
 #include "Core.h"
 
 class VulkanDataObject {
+protected:
+	static int32_t find_memory_type(uint32_t memory_type_bits, VkMemoryPropertyFlags memory_property) noexcept;
 public:
+	VulkanDataObject() {}
+	VulkanDataObject(const VulkanDataObject& obj) = delete;
+	VulkanDataObject& operator=(VulkanDataObject& obj) = delete;
 	virtual ~VulkanDataObject() {}
 };
 
@@ -14,7 +19,6 @@ protected:
 
 protected:
 	virtual ~VulkanResizable() {}
-
 	VulkanResizable(uint32_t width, uint32_t height) : _width(width), _height(height) {}
 public:
 
@@ -70,8 +74,37 @@ public:
 	~VulkanFramebuffer();
 };
 
-class VulkanBuffer {
+class VulkanBuffer : VulkanDataObject{
+protected:
+	VkBuffer _buffer;
+	VkDeviceMemory _memory;
+	VkDeviceSize _size;
+	char* _ptr;
 
+public:
+	static void copy_buffers(VkCommandBuffer command_buffer,
+		const VulkanBuffer& src, const VulkanBuffer& dst,
+		VkDeviceSize src_offset, VkDeviceSize dst_offset, VkDeviceSize size) noexcept;
+
+	VulkanBuffer(VkBufferUsageFlags usage, VkDeviceSize size, VkMemoryPropertyFlags memory_property);
+
+	inline VkDeviceSize get_size()const noexcept { return _size; }
+	inline char* map_memory(VkDeviceSize offset, VkDeviceSize size) noexcept {
+		vkMapMemory(Core::get_device(), _memory, offset, size, NULL, (void**)&_ptr);
+		return _ptr;
+	}
+	inline void unmap_memory() noexcept {
+		vkUnmapMemory(Core::get_device(), _memory);
+		_ptr = nullptr;
+	}
+	inline void bind_index_buffer(VkCommandBuffer command_buffer, VkDeviceSize offset) const noexcept {
+		vkCmdBindIndexBuffer(command_buffer, _buffer, offset, VK_INDEX_TYPE_UINT32);
+	}
+	inline void bind_vertex_buffer(VkCommandBuffer command_buffer, VkDeviceSize offset) const noexcept {
+		vkCmdBindVertexBuffers(command_buffer, 0, 1, &_buffer, &offset);
+	}
+
+	~VulkanBuffer();
 };
 
 

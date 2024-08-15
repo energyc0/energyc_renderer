@@ -130,9 +130,6 @@ void Core::pick_physical_device() {
 	vkEnumeratePhysicalDevices(_instance, &phys_dev_count, phys_devices.data());
 
 	auto is_suitable_device = [this](VkPhysicalDevice phys_dev) {
-		std::optional<uint32_t> graphics_family;
-		std::optional<uint32_t> present_family;
-
 		uint32_t queue_family_count;
 		vkGetPhysicalDeviceQueueFamilyProperties(phys_dev, &queue_family_count, nullptr);
 		std::vector<VkQueueFamilyProperties> queue_family_properties(queue_family_count);
@@ -156,6 +153,9 @@ void Core::pick_physical_device() {
 			}
 		}
 
+		std::optional<uint32_t> graphics_family;
+		std::optional<uint32_t> present_family;
+		bool result = false;
 		for (uint32_t idx = 0; idx < queue_family_count; idx++) {
 			if (queue_family_properties[idx].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
 				graphics_family = idx;
@@ -167,11 +167,12 @@ void Core::pick_physical_device() {
 			if (is_present_supported) {
 				present_family = idx;
 			}
-		}
-		bool result = graphics_family.has_value() && present_family.has_value();
-		if (result) {
-			_graphics_queue_family_index = graphics_family.value();
-			_present_queue_family_index = present_family.value();
+			result = graphics_family.has_value() && present_family.has_value();
+			if (result) {
+				_graphics_queue_family_index = graphics_family.value();
+				_present_queue_family_index = present_family.value();
+				break;
+			}
 		}
 		return result;
 	};
@@ -323,13 +324,13 @@ void Core::create_swapchain(GLFWwindow* window) {
 	create_info.preTransform = surface_capabilities.currentTransform;
 	create_info.presentMode = present_mode;
 
+	uint32_t indices[] = { _graphics_queue_family_index, _present_queue_family_index };
 	if (_graphics_queue_family_index == _present_queue_family_index) {
 		create_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
 		create_info.queueFamilyIndexCount = 0;
 		create_info.pQueueFamilyIndices = nullptr;
 	}
 	else {
-		uint32_t indices[] = { _graphics_queue_family_index, _present_queue_family_index };
 		create_info.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
 		create_info.queueFamilyIndexCount = 2;
 		create_info.pQueueFamilyIndices = indices;

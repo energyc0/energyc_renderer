@@ -52,6 +52,35 @@ VkResult CommandManager::submit_queue(const std::vector<VkCommandBuffer>& cmd,
 	return vkQueueSubmit(Core::get_graphics_queue(), 1, &submit, fence);
 }
 
+VkCommandBuffer CommandManager::begin_single_command_buffer() noexcept {
+	VkCommandBuffer command_buffer;
+	cmd_manager_ptr->_dynamic_command_buffers.push_back(command_buffer);
+
+	VkCommandBufferAllocateInfo alloc_info{};
+	alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	alloc_info.commandBufferCount = 1;
+	alloc_info.commandPool = cmd_manager_ptr->_command_pool;
+	alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+	VK_ASSERT(vkAllocateCommandBuffers(Core::get_device(), &alloc_info, &command_buffer), "vkAllocateCommandBuffers() - FAILED");
+
+	VkCommandBufferBeginInfo begin_info{};
+	begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+	vkBeginCommandBuffer(command_buffer, &begin_info);
+
+	return command_buffer;
+}
+VkResult CommandManager::end_single_command_buffer(VkCommandBuffer command_buffer) noexcept {
+	VkResult result = vkEndCommandBuffer(command_buffer);
+
+	if (result != VK_SUCCESS)
+		return result;
+
+	result = submit_queue({ command_buffer }, {}, {}, {}, {});
+	vkDeviceWaitIdle(Core::get_device());
+	return result;
+}
+
 CommandManager::~CommandManager() {
 	vkDestroyCommandPool(Core::get_device(), _command_pool, nullptr);
 }

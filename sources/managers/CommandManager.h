@@ -8,6 +8,8 @@ private:
 
 	VkCommandBuffer _current_frame_cmd;
 
+	std::vector<VkCommandBuffer> _dynamic_command_buffers;
+
 	static CommandManager* cmd_manager_ptr;
 public:
 	CommandManager();
@@ -22,7 +24,8 @@ public:
 		const std::vector<VkSemaphore>& signal_semaphores,
 		VkFence fence) noexcept;
 
-	VkResult submit_frame_queue() const noexcept;
+	static VkCommandBuffer begin_single_command_buffer() noexcept;
+	static VkResult end_single_command_buffer(VkCommandBuffer command_buffer) noexcept;
 
 	~CommandManager();
 };

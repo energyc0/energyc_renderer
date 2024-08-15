@@ -1,10 +1,11 @@
 #include "RendererSolid.h"
+#include "Scene.h"
 #include <array>
 
 constexpr const char* vertex_shader_spv_path = "shaders/spir-v/solid_vert.spv";
 constexpr const char* fragment_shader_spv_path = "shaders/spir-v/solid_frag.spv";
 
-RendererSolid::RendererSolid(const RendererSolidCreateInfo* create_info)
+RendererSolid::RendererSolid(const RendererSolidCreateInfo* create_info) : _scene(create_info->scene)
 {
 	create_descriptor_tools(create_info);
 	create_pipeline(create_info);
@@ -50,9 +51,9 @@ void RendererSolid::create_pipeline(const RendererSolidCreateInfo* renderer_crea
 	};
 
 	auto input_assembly = utils::set_pipeline_input_assembly_state(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
-	std::vector<VkVertexInputAttributeDescription> empty_attribute;
-	std::vector<VkVertexInputBindingDescription> empty_binding;
-	auto vertex_input = utils::set_pipeline_vertex_input_state(empty_attribute, empty_binding);
+	std::vector<VkVertexInputAttributeDescription> attributes = Vertex::get_attribute_description();
+	std::vector<VkVertexInputBindingDescription>bindings = Vertex::get_binding_description();
+	auto vertex_input = utils::set_pipeline_vertex_input_state(attributes, bindings);
 	auto viewport = utils::set_pipeline_viewport_state(1, 1);
 	std::vector<VkDynamicState> dynamic_states{ VK_DYNAMIC_STATE_SCISSOR, VK_DYNAMIC_STATE_VIEWPORT };
 	auto dynamic = utils::set_pipeline_dynamic_state(dynamic_states);
@@ -89,7 +90,7 @@ void RendererSolid::create_pipeline(const RendererSolidCreateInfo* renderer_crea
 
 void RendererSolid::fill_command_buffer(VkCommandBuffer command_buffer) {
 	vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _graphics_pipeline);
-	vkCmdDraw(command_buffer, 3, 1, 0, 0);
+	_scene.draw(command_buffer);
 }
 
 RendererSolid::~RendererSolid() {}

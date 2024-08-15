@@ -11,6 +11,8 @@ set(EXECUTABLE_OUTPUT_PATH ${CMAKE_CURRENT_LIST_DIR})
 
 if(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
     add_compile_definitions(-DDEBUG)
+    set(CMAKE_C_FLAGS "/fsanitize=address")
+    set(CMAKE_CXX_FLAGS "/fsanitize=address")
 endif()
 
 set(CMAKE_CXX_STANDARD 20)

@@ -10,8 +10,8 @@ private:
 	Core _core;
 	CommandManager _command_manager;
 	SyncManager _sync_manager;
-	RenderUnitSolid _render_unit_solid;
-
+	RenderUnitSolid* _render_unit_solid;
+	std::vector<class Scene*> _scenes;
 
 private:
 	void update_render_tasks();

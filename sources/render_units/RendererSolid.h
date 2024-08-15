@@ -1,15 +1,16 @@
 #pragma once
 
 #include "RendererBase.h"
-
+ 
 struct RendererSolidCreateInfo {
 	VkRenderPass render_pass;
-	uint32_t render_objects_count;
+	class Scene& scene;
 };
 
 class RendererSolid : public RendererBaseExt {
 private:
 	std::vector<VkDescriptorSet> _descriptor_sets;
+	Scene& _scene;
 private:
 	void create_descriptor_tools(const RendererSolidCreateInfo* create_info);
 	void create_pipeline(const RendererSolidCreateInfo* create_info);

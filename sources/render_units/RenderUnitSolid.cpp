@@ -1,13 +1,14 @@
 #include "RenderUnitSolid.h"
 #include <array>
 
-RenderUnitSolid::RenderUnitSolid() {
+RenderUnitSolid::RenderUnitSolid(class Scene& scene) {
 	create_render_pass();
 	create_framebuffers();
 
-	RendererSolidCreateInfo create_info{};
-	create_info.render_objects_count = 1;
-	create_info.render_pass = _render_pass;
+	RendererSolidCreateInfo create_info{
+		_render_pass,
+		scene
+	};
 	_renderer_solid = new RendererSolid(&create_info);
 	LOG_STATUS("RenderUnitSolid - RendererSolid created.");
 }

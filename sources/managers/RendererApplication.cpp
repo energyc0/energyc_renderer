@@ -1,8 +1,16 @@
 #include "RendererApplication.h"
+#include "Scene.h"
 
 RendererApplication::RendererApplication(int width, int height, const char* application_name, const char* engine_name) :
 	_window(width,height,application_name),
 	_core(_window.get_window(), application_name,engine_name){
+	_scenes.push_back(new Scene({ new Model(
+		{{glm::vec3(0.5, 0.5, 0.0) ,glm::vec3(1.0,0.0,0.0),glm::vec3(0.0)},
+		{glm::vec3(-0.5, 0.5, 0.0), glm::vec3(0.0,1.0,0.0)},
+		{glm::vec3(0.0, 0.0, 0.0), glm::vec3(0.0,0.0,1.0)}},
+		{0,1,2}
+)}));
+	_render_unit_solid = new RenderUnitSolid(*_scenes[0]);
 	LOG_STATUS("Application start.");
 }
 
@@ -17,7 +25,7 @@ void RendererApplication::run() {
 void RendererApplication::update_render_tasks() {
 	_command_manager.begin_frame_command_buffer();
 
-	_render_unit_solid.fill_command_buffer(_command_manager.get_frame_command_buffer());
+	_render_unit_solid->fill_command_buffer(_command_manager.get_frame_command_buffer());
 
 	_command_manager.end_frame_command_buffer();
 }
@@ -47,4 +55,8 @@ void RendererApplication::render() {
 RendererApplication::~RendererApplication() {
 	LOG_STATUS("Application shutdown.");
 	vkDeviceWaitIdle(Core::get_device());
+	for (auto scene : _scenes) {
+		delete scene;
+	}
+	delete _render_unit_solid;
 }

@@ -4,6 +4,7 @@
  
 struct RendererSolidCreateInfo {
 	VkRenderPass render_pass;
+	VkDescriptorSetLayout render_unit_set_layout;
 	class Scene& scene;
 };
 

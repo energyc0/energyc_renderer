@@ -1,4 +1,4 @@
-#include "RendererSolid.h"
+#include "RenderUnitSolid.h"
 #include "Scene.h"
 #include <array>
 
@@ -11,8 +11,8 @@ RendererSolid::RendererSolid(const RendererSolidCreateInfo* create_info) : _scen
 	create_pipeline(create_info);
 }
 
-void RendererSolid::create_descriptor_tools(const RendererSolidCreateInfo* create_info) {
-	/*{
+void RendererSolid::create_descriptor_tools(const RendererSolidCreateInfo* renderer_create_info) {
+	{
 		std::array<VkDescriptorPoolSize, 1> pool_sizes{};
 		pool_sizes[0].descriptorCount = 1;
 		pool_sizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -22,21 +22,24 @@ void RendererSolid::create_descriptor_tools(const RendererSolidCreateInfo* creat
 		create_info.pPoolSizes = pool_sizes.data();
 		create_info.poolSizeCount = pool_sizes.size();
 		create_info.maxSets = 1;
-		VK_ASSERT(vkCreateDescriptorPool(_device, &create_info, nullptr, &_descriptor_pool), "vkCreateDescriptorPool(), RendererSolid - FAILED");
+		VK_ASSERT(vkCreateDescriptorPool(Core::get_device(), &create_info, nullptr, &_descriptor_pool), "vkCreateDescriptorPool(), RendererSolid - FAILED");
 		LOG_STATUS("Created RendererSolid descriptor pool.");
 	}
 
 	{
-
+		auto bindings = RenderUnitSolid::get_bindings();
 		VkDescriptorSetLayoutCreateInfo create_info{};
 		create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-		VK_ASSERT(vkCreateDescriptorSetLayout(_device, &create_info, nullptr, &_descriptor_set_layout), "vkCreateDescriptorSetLayout(), RendererSolid - FAILED");
-	}*/
+		create_info.bindingCount = bindings.size();
+		create_info.pBindings = bindings.data();
+		VK_ASSERT(vkCreateDescriptorSetLayout(Core::get_device(), &create_info, nullptr, &_descriptor_set_layout), "vkCreateDescriptorSetLayout(), RendererSolid - FAILED");
+	}
 
 	{
 		VkPipelineLayoutCreateInfo create_info{};
 		create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-
+		create_info.pSetLayouts = &renderer_create_info->render_unit_set_layout;
+		create_info.setLayoutCount = 1;
 		VK_ASSERT(vkCreatePipelineLayout(Core::get_device(), &create_info, nullptr, &_pipeline_layout), "vkCreatePipelineLayout() RendererSolid - FAILED");
 	}
 }

@@ -192,6 +192,14 @@ void VulkanBuffer::copy_buffers(VkCommandBuffer command_buffer,
 	vkCmdCopyBuffer(command_buffer, src._buffer, dst._buffer, 1, &copy);
 }
 
+VkDescriptorBufferInfo VulkanBuffer::get_info(VkDeviceSize offset, VkDeviceSize range) const noexcept {
+	VkDescriptorBufferInfo info{};
+	info.buffer = _buffer;
+	info.offset = offset;
+	info.range = range;
+	return info;
+}
+
 VulkanBuffer::~VulkanBuffer() {
 	if (_ptr != nullptr) {
 		vkUnmapMemory(Core::get_device(), _memory);

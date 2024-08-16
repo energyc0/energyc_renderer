@@ -104,6 +104,8 @@ public:
 		vkCmdBindVertexBuffers(command_buffer, 0, 1, &_buffer, &offset);
 	}
 
+	VkDescriptorBufferInfo get_info(VkDeviceSize offset, VkDeviceSize range) const noexcept;
+
 	~VulkanBuffer();
 };
 

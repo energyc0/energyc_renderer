@@ -12,6 +12,11 @@ const vec3 colors[] = {
     vec3(0.0,0.0,1.0)
 };
 
+layout(binding = 0) uniform global_UBO{
+    mat4 view;
+    mat4 perspective;
+}ubo;
+
 layout(location = 0) in vec3 pos;
 layout(location = 1) in vec3 color;
 layout(location = 2) in vec3 normal;
@@ -20,5 +25,5 @@ layout(location = 0) out vec3 frag_color;
 
 void main(){
     frag_color = colors[gl_VertexIndex];
-    gl_Position = vec4(vertices[gl_VertexIndex], 0.0, 1.0);
+    gl_Position = ubo.perspective * ubo.view * vec4(pos, 1.0);
 }

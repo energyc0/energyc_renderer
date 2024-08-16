@@ -21,6 +21,11 @@ add_library(renderer
 
 	"other/Window.cpp"
 	"other/Window.h"
+	"other/Camera.h"
+	"other/Camera.cpp"
+	"other/UserController.h"
+	"other/UserController.cpp"
+	"other/Timer.h"
 
 	"render_units/RendererBase.h"
 	"render_units/RendererSolid.h"

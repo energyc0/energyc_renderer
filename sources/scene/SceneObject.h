@@ -54,8 +54,10 @@ public:
 
 class Model : public WorldObject {
 protected:
-	glm::vec3 _size = glm::vec3(1.f);
-	glm::quat _rotation = glm::vec3(0.f);
+	glm::vec3 _size;
+	glm::quat _rotation;
+
+	glm::mat4 _transform;
 
 	uint32_t _vertices_count;
 	uint32_t _indices_count;
@@ -63,19 +65,46 @@ protected:
 	uint32_t _first_buffer_vertex;
 	uint32_t _first_buffer_index;
 
+	std::vector<void*> _model_transform_ptr;
+	std::vector<bool> _is_copied = std::vector<bool>(Core::get_swapchain_image_count(),true);
+	bool _is_transformed = true;
+protected:
+
+	void set_new_transform() noexcept;
 public:
-	Model(const Mesh& mesh,
+	Model(const Mesh* mesh,
 		uint32_t instance_index,
 		uint32_t first_vertex,
 		uint32_t first_index,
-		glm::vec3 world_pos = glm::vec3(0.f)) noexcept;
+		std::vector<void*> _buffer_ptr,
+		glm::vec3 world_pos = glm::vec3(0.f),
+		glm::vec3 size = glm::vec3(1.f),
+		glm::quat rotation = glm::vec3(0.f)) noexcept;
 
 	static std::vector<VkDescriptorSetLayoutBinding> get_bindings() noexcept;
+	
+	virtual void set_pos(const glm::vec3& pos) noexcept;
+	virtual void set_size(const glm::vec3& size) noexcept;
+	virtual void set_rotation(const glm::quat& rotation) noexcept;
+
+	inline void copy_to_buffer() noexcept { memcpy(_model_transform_ptr[Core::get_current_frame()], &_transform, sizeof(glm::mat4)); }
 
 	virtual inline void draw(VkCommandBuffer command_buffer) noexcept {
+		if (!_is_transformed) {
+			set_new_transform();
+		}
+		if (!_is_copied[Core::get_current_frame()]) {
+			copy_to_buffer();
+		}
 		vkCmdDraw(command_buffer, _vertices_count, 1, _first_buffer_vertex, 0);
 	}
 	virtual inline void draw_indexed(VkCommandBuffer command_buffer) noexcept {
+		if (!_is_transformed) {
+			set_new_transform();
+		}
+		if (!_is_copied[Core::get_current_frame()]) {
+			copy_to_buffer();
+		}
 		vkCmdDrawIndexed(command_buffer, _indices_count, 1, _first_buffer_index, 0, 0);
 	}
 };

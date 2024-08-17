@@ -70,11 +70,12 @@ void Scene::ModelGroup::create_descriptor_tools(VkDescriptorSetLayout layout) {
 
 	_storage_buffers.resize(image_count);
 	_descriptor_sets.resize(image_count);
-
+	_buffer_data_ptrs.reserve(image_count);
 	for (auto& buffer : _storage_buffers) {
 		buffer = new VulkanBuffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
 			sizeof(glm::mat4) * GROUP_MODEL_LIMIT,
 			VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+		_buffer_data_ptrs.push_back(buffer->map_memory(0, VK_WHOLE_SIZE));
 	}
 
 	std::vector< VkDescriptorSetLayout> layouts(image_count,layout);
@@ -141,18 +142,27 @@ void Scene::ModelGroup::create_buffers(Mesh* object) {
 	CommandManager::end_single_command_buffer(cmd);
 }
 
+void Scene::ModelGroup::push_model(const Mesh* mesh) {
+	std::vector<void*> ptrs;
+	ptrs.reserve(_buffer_data_ptrs.size());
+	for (char*& ptr : _buffer_data_ptrs) {
+		ptrs.push_back((void*)ptr);
+		ptr += sizeof(glm::mat4);
+	}
+	_models.push_back(new Model(mesh, _models.size(), _total_vertices, _total_indices, ptrs));
+
+	_total_vertices += mesh->get_vertices_count();
+	_total_indices += mesh->get_indices_count();
+}
+
 Scene::ModelGroup::ModelGroup(Mesh* object, VkDescriptorSetLayout layout) : _total_indices(0), _total_vertices(0) {
 	create_descriptor_tools(layout);
 	create_buffers(object);
-
-	_models.push_back(new Model(*object, _models.size(), _total_vertices, _total_indices));
-	
-	_total_vertices += object->get_vertices_count();
-	_total_indices += object->get_indices_count();
+	push_model(object);
 	LOG_STATUS("Created new ModelGroup.");
 }
 
-bool Scene::ModelGroup::try_add_mesh(Mesh* object) {
+bool Scene::ModelGroup::try_add_mesh(const Mesh* object) {
 	return false;
 }
 

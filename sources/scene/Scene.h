@@ -20,13 +20,17 @@ private:
 		
 		uint32_t _total_vertices;
 		uint32_t _total_indices;
+		std::vector<char*> _buffer_data_ptrs;
+
 	private:
 		void create_descriptor_tools(VkDescriptorSetLayout layout);
 		void create_buffers(Mesh* object);
+		void push_model(const Mesh* mesh);
+
 	public:
 		ModelGroup(Mesh* object, VkDescriptorSetLayout layout);
 
-		bool try_add_mesh(Mesh* object);
+		bool try_add_mesh(const Mesh* object);
 		void draw(VkCommandBuffer command_buffer, VkPipelineLayout layout, VkDescriptorSet global_ubo);
 
 		~ModelGroup();
@@ -38,7 +42,6 @@ public:
 	Scene(const std::vector<SceneObject*>& objects);
 
 	inline VkDescriptorSetLayout get_descriptor_set_layout()const noexcept { return _model_group_layout; }
-	
 
 	void add_object(SceneObject* object);
 	void draw(VkCommandBuffer command_buffer, VkPipelineLayout layout, VkDescriptorSet global_ubo);

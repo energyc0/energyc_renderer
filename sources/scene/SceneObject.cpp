@@ -77,17 +77,51 @@ Mesh::Mesh(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& ind
 Mesh::Mesh(std::vector<Vertex>&& vertices, std::vector<uint32_t>&& indices) noexcept : _vertices(std::move(vertices)), _indices(std::move(indices)) {}
 Mesh::Mesh(const char* filename) noexcept : Mesh(load_mesh(filename)) {}
 
-Model::Model(const Mesh& mesh,
+void Model::set_size(const glm::vec3& size) noexcept {
+	_size = size;
+	_is_transformed = false;
+}
+
+void Model::set_rotation(const glm::quat& rotation) noexcept {
+	_rotation = rotation;
+	_is_transformed = false;
+}
+
+void Model::set_pos(const glm::vec3& pos) noexcept {
+	_world_pos = pos;
+	_is_transformed = false;
+}
+
+void Model::set_new_transform() noexcept {
+	_transform = glm::mat4_cast(_rotation) *
+		glm::translate(glm::mat4(1.f), _world_pos) *
+		glm::scale(glm::mat4(1.f), _size);
+	_is_copied.assign(_is_copied.size(), false);
+}
+
+Model::Model(const Mesh* mesh,
 	uint32_t instance_index,
 	uint32_t first_vertex,
 	uint32_t first_index,
-	glm::vec3 world_pos) noexcept :
+	std::vector<void*> _buffer_ptr,
+	glm::vec3 world_pos,
+	glm::vec3 size,
+	glm::quat rotation) noexcept :
 	WorldObject(world_pos),
-	_vertices_count(mesh.get_vertices_count()),
-	_indices_count(mesh.get_indices_count()),
+	_size(size),
+	_rotation(rotation),
+	_vertices_count(mesh->get_vertices_count()),
+	_indices_count(mesh->get_indices_count()),
 	_first_buffer_vertex(first_vertex),
 	_first_buffer_index(first_index),
-	_instance_index(instance_index){}
+	_instance_index(instance_index),
+	_model_transform_ptr(_buffer_ptr){
+
+	set_new_transform();
+	for (void* ptr : _buffer_ptr) {
+		memcpy(ptr, &_transform, sizeof(glm::mat4));
+	}
+}
 
 std::vector<VkDescriptorSetLayoutBinding> Model::get_bindings() noexcept {
 	std::vector<VkDescriptorSetLayoutBinding> bindings(1);

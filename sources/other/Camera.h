@@ -23,7 +23,7 @@ public:
 class FreeCamera : public CameraBase{
 protected:
 	//default values
-	constexpr static float d_acceleration = 0.25f;
+	constexpr static float d_acceleration = 0.1f;
 	constexpr static float d_deceleration = 0.01f;
 	constexpr static float d_sensetivity = 1.0f;
 	constexpr static float d_max_velocity = 0.1f;

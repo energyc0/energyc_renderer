@@ -59,11 +59,11 @@ namespace utils {
 }
 
 #ifdef DEBUG
-#define LOG_STATUS(msg) utils::Log::status(msg)
-#define LOG_WARNING(msg) utils::Log::warning(msg)
+#define LOG_STATUS(msg, ...) utils::Log::status(msg, __VA_ARGS__)
+#define LOG_WARNING(msg, ...) utils::Log::warning(msg, __VA_ARGS__)
 #else
 #define LOG_STATUS(msg) ((void)0)
 #define LOG_WARNING(msg) ((void)0)
 #endif // DEBUG
 
-#define LOG_ERROR(msg) utils::Log::error(msg)
+#define LOG_ERROR(msg, ...) utils::Log::error(msg, __VA_ARGS__)

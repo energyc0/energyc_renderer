@@ -1,17 +1,17 @@
 #include "RendererApplication.h"
 #include "Scene.h"
 
+const std::string sphere_filename = std::string(RENDERER_DIRECTORY) + "/assets/sphere.obj";
+
 RendererApplication::RendererApplication(int width, int height, const char* application_name, const char* engine_name) :
 	_window(width, height, application_name),
 	_core(_window.get_window(), application_name, engine_name),
-	//_camera(glm::vec3(0.0f), glm::vec3(1.f)),
-	_controller(_window, _camera){
-	_scenes.push_back(new Scene({ new Model(
-		{{glm::vec3(2.5, 2.5, 1.0) ,glm::vec3(1.0,0.0,0.0),glm::vec3(0.0)},
-		{glm::vec3(-2.5, 2.5, 1.0), glm::vec3(0.0,1.0,0.0)},
-		{glm::vec3(0.0, 0.0, 1.0), glm::vec3(0.0,0.0,1.0)}},
-		{0,1,2}
-)}));
+	_camera(glm::vec3(0.0f, 0.f, -10.f)),
+	_controller(_window, _camera) {
+	Mesh* sphere = new Mesh(sphere_filename.c_str());
+	Scene* scene = new Scene({ sphere });
+
+	_scenes.push_back(scene);
 	_render_unit_solid = new RenderUnitSolid(*_scenes[0], _controller.get_camera());
 	LOG_STATUS("Application start.");
 }
@@ -44,19 +44,19 @@ void RendererApplication::render(float delta_time) {
 	vkResetFences(_core.get_device(), 1, &fence);
 
 	VkSemaphore semaphore_to_render = _sync_manager.get_semaphore_to_render();
+	VkSemaphore semaphore_to_present = _sync_manager.get_semaphore_to_present();
 	auto result = _core.acquire_next_image(semaphore_to_render,NULL);
 
 	update_uniform();
 	update_render_tasks(delta_time);
 
-	VkSemaphore semaphore_to_present = _sync_manager.get_semaphore_to_present();
-	VK_ASSERT(CommandManager::submit_queue(
+	result = CommandManager::submit_queue(
 		{ _command_manager.get_frame_command_buffer() },	//command buffers
 		{ semaphore_to_render },							//wait semaphores
 		{ VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT },	//wait stage flags
 		{ semaphore_to_present },							//signal semaphores
-		fence),												//fence
-		"vkQueueSubmit() - FAILED");
+		fence);												//fence
+	VK_ASSERT(result, "vkQueueSubmit() - FAILED");
 
 	result = _core.queue_present({ semaphore_to_present });
 }

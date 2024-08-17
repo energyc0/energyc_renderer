@@ -7,8 +7,7 @@ add_executable("energyc_renderer"
     "sources/main.cpp"
 )
 
-set(EXECUTABLE_OUTPUT_PATH ${CMAKE_CURRENT_LIST_DIR})
-
+add_compile_definitions(-DRENDERER_DIRECTORY="${CMAKE_CURRENT_LIST_DIR}")
 if(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
     add_compile_definitions(-DDEBUG)
     #set(CMAKE_C_FLAGS "/fsanitize=address")

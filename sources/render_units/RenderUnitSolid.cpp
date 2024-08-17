@@ -11,6 +11,7 @@ RenderUnitSolid::RenderUnitSolid(class Scene& scene, const CameraBase& camera) :
 	RendererSolidCreateInfo create_info{
 		_render_pass,
 		_descriptor_set_layout,
+		_descriptor_sets,
 		scene
 	};
 	_renderer_solid = new RendererSolid(&create_info);
@@ -53,9 +54,10 @@ void RenderUnitSolid::create_render_pass() {
 	dependency[0].dstSubpass = 0;
 	dependency[0].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 	dependency[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	dependency[0].srcStageMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	dependency[0].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 	dependency[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-	dependency[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+	dependency[0].dependencyFlags = 0;
+
 
 	VkRenderPassCreateInfo create_info{};
 	create_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
@@ -202,7 +204,6 @@ void RenderUnitSolid::fill_command_buffer(VkCommandBuffer command_buffer) {
 	vkCmdSetViewport(command_buffer, 0, 1, &viewport);
 	vkCmdSetScissor(command_buffer, 0, 1, &begin_info.renderArea);
 
-	vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipeline_layout, 0, 1, &_descriptor_sets[Core::get_current_frame()], 0, 0);
 	_renderer_solid->fill_command_buffer(command_buffer);
 
 	vkCmdEndRenderPass(command_buffer);

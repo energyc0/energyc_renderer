@@ -5,12 +5,13 @@
 struct RendererSolidCreateInfo {
 	VkRenderPass render_pass;
 	VkDescriptorSetLayout render_unit_set_layout;
+	std::vector<VkDescriptorSet> descriptor_sets;
 	class Scene& scene;
 };
 
 class RendererSolid : public RendererBaseExt {
 private:
-	std::vector<VkDescriptorSet> _descriptor_sets;
+	std::vector<VkDescriptorSet> _global_descriptor_sets;
 	Scene& _scene;
 private:
 	void create_descriptor_tools(const RendererSolidCreateInfo* create_info);

@@ -1,4 +1,6 @@
 #include "SceneObject.h"
+#define TINYOBJLOADER_IMPLEMENTATION
+#include "tiny_obj_loader.h"
 
 std::vector<VkVertexInputAttributeDescription> Vertex::get_attribute_description() {
 	std::vector<VkVertexInputAttributeDescription> descriptions(3);
@@ -30,25 +32,70 @@ std::vector<VkVertexInputBindingDescription> Vertex::get_binding_description() {
 	return bindings;
 }
 
-RenderObject::RenderObject() noexcept : _world_pos(0.f){}
-RenderObject::RenderObject(const glm::vec3& pos) noexcept  : _world_pos(pos) {}
+WorldObject::WorldObject() noexcept : _world_pos(0.f){}
+WorldObject::WorldObject(const glm::vec3& pos) noexcept  : _world_pos(pos) {}
 
-void RenderObject::set_pos(const glm::vec3& pos) noexcept {
+void WorldObject::set_pos(const glm::vec3& pos) noexcept {
 	_world_pos = pos;
 }
 
-Model Model::load_mesh(const char* filename) noexcept {
-	return Model({}, {});
+Mesh Mesh::load_mesh(const char* filename) noexcept {
+	tinyobj::attrib_t attrib;
+	std::vector<tinyobj::shape_t> shapes;
+	std::vector<tinyobj::material_t> materials;
+	std::string warn, err;
+
+	if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, filename)) {
+		LOG_ERROR(warn, '\n', err);
+	}
+	
+	Mesh mesh;
+	uint32_t current_index = 0;
+	for (const auto& shape : shapes) {
+		for (const auto& index : shape.mesh.indices) {
+			Vertex vertex{};
+			vertex.pos.x = attrib.vertices[3 * index.vertex_index + 0];
+			vertex.pos.y = attrib.vertices[3 * index.vertex_index + 1];
+			vertex.pos.z = attrib.vertices[3 * index.vertex_index + 2];
+
+			vertex.color = glm::vec3(1.0f);
+
+			vertex.normal.x = attrib.normals[3 * index.normal_index + 0];
+			vertex.normal.y = attrib.normals[3 * index.normal_index + 1];
+			vertex.normal.z = attrib.normals[3 * index.normal_index + 2];
+
+			mesh._vertices.push_back(vertex);
+			mesh._indices.push_back(current_index++);
+		}
+	}
+
+	return mesh;
 }
 
-Model::Model(const std::vector<Vertex>& vertices, const std::vector<uint32_t> indices) noexcept : _vertices(vertices), _indices(indices) {}
+Mesh::Mesh() noexcept : _vertices(), _indices() {}
+Mesh::Mesh(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices) noexcept : _vertices(vertices), _indices(indices) {}
+Mesh::Mesh(std::vector<Vertex>&& vertices, std::vector<uint32_t>&& indices) noexcept : _vertices(std::move(vertices)), _indices(std::move(indices)) {}
+Mesh::Mesh(const char* filename) noexcept : Mesh(load_mesh(filename)) {}
 
-Model::Model(const char* filename) noexcept : Model(load_mesh(filename)) {}
+Model::Model(const Mesh& mesh,
+	uint32_t instance_index,
+	uint32_t first_vertex,
+	uint32_t first_index,
+	glm::vec3 world_pos) noexcept :
+	WorldObject(world_pos),
+	_vertices_count(mesh.get_vertices_count()),
+	_indices_count(mesh.get_indices_count()),
+	_first_buffer_vertex(first_vertex),
+	_first_buffer_index(first_index),
+	_instance_index(instance_index){}
 
-void Model::draw(VkCommandBuffer command_buffer) noexcept  {
-	vkCmdDraw(command_buffer, _vertices.size(), 1, 0, 0);
-}
+std::vector<VkDescriptorSetLayoutBinding> Model::get_bindings() noexcept {
+	std::vector<VkDescriptorSetLayoutBinding> bindings(1);
 
-void Model::draw_indexed(VkCommandBuffer command_buffer, int32_t vertex_offset) noexcept {
-	vkCmdDrawIndexed(command_buffer, _indices.size(), 1, 0, vertex_offset, 0);
+	bindings[0].binding = 1;
+	bindings[0].descriptorCount = 1;
+	bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	bindings[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+	return bindings;
 }

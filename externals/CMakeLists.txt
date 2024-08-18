@@ -23,3 +23,17 @@ set_target_properties(glfwlib
 
 
 add_library(extern::glfwlib ALIAS glfwlib)
+
+add_library(ImGui
+"${CMAKE_CURRENT_LIST_DIR}/include/imgui.cpp"
+"${CMAKE_CURRENT_LIST_DIR}/include/imgui_demo.cpp"
+"${CMAKE_CURRENT_LIST_DIR}/include/imgui_draw.cpp"
+"${CMAKE_CURRENT_LIST_DIR}/include/imgui_tables.cpp"
+"${CMAKE_CURRENT_LIST_DIR}/include/imgui_widgets.cpp"
+"${CMAKE_CURRENT_LIST_DIR}/include/imgui_impl_vulkan.cpp"
+"${CMAKE_CURRENT_LIST_DIR}/include/imgui_impl_glfw.cpp"
+)
+
+target_include_directories(ImGui PRIVATE ${Vulkan_INCLUDE_DIR} "include")
+
+add_library(extern::ImGui ALIAS ImGui)

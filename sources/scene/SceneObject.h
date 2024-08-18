@@ -111,19 +111,19 @@ public:
 	inline void copy_to_buffer() noexcept { memcpy(_model_transform_ptr[Core::get_current_frame()], &_transform, sizeof(glm::mat4)); }
 
 	virtual inline void draw(VkCommandBuffer command_buffer) noexcept {
-		if (!_is_transformed) {
-			set_new_transform();
-		}
 		if (!_is_copied[Core::get_current_frame()]) {
+			if (!_is_transformed) {
+				set_new_transform();
+			}
 			copy_to_buffer();
 		}
 		vkCmdDraw(command_buffer, _vertices_count, 1, _first_buffer_vertex, _instance_index);
 	}
 	virtual inline void draw_indexed(VkCommandBuffer command_buffer) noexcept {
-		if (!_is_transformed) {
-			set_new_transform();
-		}
 		if (!_is_copied[Core::get_current_frame()]) {
+			if (!_is_transformed) {
+				set_new_transform();
+			}
 			copy_to_buffer();
 		}
 		vkCmdDrawIndexed(command_buffer, _indices_count, 1, _first_buffer_index, 0, _instance_index);

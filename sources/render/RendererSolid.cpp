@@ -1,7 +1,9 @@
+#include "RendererSolid.h"
 #include "RenderUnitSolid.h"
 #include "SceneObject.h"
 #include "Scene.h"
 #include "RenderManager.h"
+#include "RendererGui.h"
 #include <array>
 
 const std::string vertex_shader_spv_path = std::string(RENDERER_DIRECTORY) + "/shaders/spir-v/solid_vert.spv";

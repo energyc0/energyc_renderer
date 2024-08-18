@@ -10,7 +10,7 @@ struct GlobalData {
 };
 
 
-RenderManager::RenderManager(Scene& scene, const CameraBase& camera) : _camera(camera) {
+RenderManager::RenderManager(Scene& scene, const CameraBase& camera, const class Window& window, struct GuiInfo& gui_info) : _camera(camera) {
 	std::shared_ptr<VulkanImage> depth_image;
 	std::shared_ptr<VulkanImageView> depth_image_view;
 	create_images(depth_image, depth_image_view);
@@ -20,6 +20,8 @@ RenderManager::RenderManager(Scene& scene, const CameraBase& camera) : _camera(c
 	RenderUnitSolidCreateInfo solid_create_info{
 		scene,
 		camera,
+		window,
+		gui_info,
 		depth_image,
 		depth_image_view,
 		_descriptor_set_layout

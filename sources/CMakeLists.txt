@@ -32,6 +32,8 @@ add_library(renderer
 	"render/RendererBase.h"
 	"render/RendererSolid.h"
 	"render/RendererSolid.cpp"
+	"render/RendererGui.h"
+	"render/RendererGui.cpp"
 	"render/RenderUnitBase.h"
 	"render/RenderUnitSolid.h"
 	"render/RenderUnitSolid.cpp"
@@ -43,6 +45,8 @@ target_include_directories(renderer PUBLIC ${Vulkan_INCLUDE_DIR})
 target_link_libraries(renderer PUBLIC ${Vulkan_LIBRARY})
 target_include_directories(renderer PUBLIC ${EXTERNALS_INCLUDE_DIRS})
 target_link_libraries(renderer PUBLIC extern::glfwlib)
+target_link_libraries(renderer PUBLIC extern::ImGui)
+
 
 target_include_directories(renderer PUBLIC 
 	"${CMAKE_CURRENT_LIST_DIR}"

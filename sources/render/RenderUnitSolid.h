@@ -1,11 +1,12 @@
 #pragma once
 
 #include "RenderUnitBase.h"
-#include "RendererSolid.h"
 
 struct RenderUnitSolidCreateInfo {
 	const class Scene& scene;
 	const class CameraBase& camera;
+	const class Window& window;
+	struct GuiInfo& gui_info;
 	const std::shared_ptr<VulkanImage>& depth_image;
 	const std::shared_ptr<VulkanImageView>& depth_image_view;
 	VkDescriptorSetLayout global_UBO_descriptor_set_layout;
@@ -15,7 +16,8 @@ class RenderUnitSolid : public RenderUnitBase{
 private:
 	const class CameraBase& _camera;
 
-	RendererSolid* _renderer_solid;
+	class RendererSolid* _renderer_solid;
+	class RendererGui* _renderer_gui;
 
 	VulkanMultipleImageViews* _image_views;
 	std::shared_ptr<VulkanImage> _depth_image;

@@ -22,7 +22,7 @@ EnergycRenderer::EnergycRenderer(int width, int height, const char* application_
 	scene->add_object(sphere2);
 
 	_scenes.push_back(scene);
-	_render_manager = new RenderManager(*_scenes[0], _controller.get_camera());
+	_render_manager = new RenderManager(*_scenes[0], _controller.get_camera(), _window, _gui_info);
 	LOG_STATUS("Application start.");
 }
 
@@ -36,7 +36,9 @@ void EnergycRenderer::run() {
 	}
 }
 
-void EnergycRenderer::update_uniform() {
+void EnergycRenderer::update_uniform(float delta_time) {
+	_gui_info.delta_time = delta_time;
+
 	_render_manager->update_descriptor_sets();
 }
 
@@ -57,7 +59,7 @@ void EnergycRenderer::draw_frame(float delta_time) {
 	VkSemaphore semaphore_to_present = _sync_manager.get_semaphore_to_present();
 	auto result = _core.acquire_next_image(semaphore_to_render,NULL);
 
-	update_uniform();
+	update_uniform(delta_time);
 	update_render_tasks(delta_time);
 
 	result = CommandManager::submit_queue(

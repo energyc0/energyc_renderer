@@ -23,7 +23,7 @@ private:
 	void create_buffers();
 	void create_descritor_tools();
 public:
-	RenderManager(class Scene& scene, const class CameraBase& camera);
+	RenderManager(class Scene& scene, const class CameraBase& camera, const class Window& window, struct GuiInfo& gui_info);
 
 	void update_descriptor_sets();
 	void render(VkCommandBuffer command_buffer);

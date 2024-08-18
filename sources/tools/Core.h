@@ -32,6 +32,7 @@ public:
 
 	static inline VkInstance get_instance() noexcept { return core_ptr->_instance; }
 	static inline VkPhysicalDevice get_physical_device() noexcept { return core_ptr->_physical_device; }
+	static inline VkSurfaceKHR get_surface() noexcept { return core_ptr->_surface; }
 	static inline VkDevice get_device() noexcept { return core_ptr->_device; }
 	static inline VkSwapchainKHR get_swapchain() noexcept { return core_ptr->_swapchain; }
 

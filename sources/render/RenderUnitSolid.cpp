@@ -1,6 +1,8 @@
 #include "RenderUnitSolid.h"
+#include "RendererSolid.h"
 #include "Camera.h"
 #include "RenderManager.h"
+#include "RendererGui.h"
 #include <array>
 
 RenderUnitSolid::RenderUnitSolid(const RenderUnitSolidCreateInfo& unit_create_info) :
@@ -19,12 +21,15 @@ RenderUnitSolid::RenderUnitSolid(const RenderUnitSolidCreateInfo& unit_create_in
 	};
 	_renderer_solid = new RendererSolid(create_info);
 	LOG_STATUS("RenderUnitSolid - RendererSolid created.");
+
+	_renderer_gui = new RendererGui(unit_create_info.window, _render_pass, unit_create_info.gui_info);
 }
 
 RenderUnitSolid::~RenderUnitSolid() {
 	vkDestroyPipelineLayout(Core::get_device(), _pipeline_layout, nullptr);
 
 	delete _image_views;
+	delete _renderer_gui;
 	delete _renderer_solid;
 }
 
@@ -169,6 +174,6 @@ void RenderUnitSolid::fill_command_buffer(VkCommandBuffer command_buffer, const 
 
 	vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipeline_layout, 0, 1, &frame_data.global_UBO, 0, 0);
 	_renderer_solid->fill_command_buffer(command_buffer);
-
+	_renderer_gui->fill_command_buffer(command_buffer);
 	vkCmdEndRenderPass(command_buffer);
 }

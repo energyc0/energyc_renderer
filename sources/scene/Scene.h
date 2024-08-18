@@ -17,9 +17,12 @@ private:
 		std::vector<VulkanBuffer*> _storage_buffers;
 		VkDescriptorPool _descriptor_pool;
 		std::vector<VkDescriptorSet> _descriptor_sets;
-		
+		uint32_t _storage_buffer_space;
+
 		uint32_t _total_vertices;
 		uint32_t _total_indices;
+		VkDeviceSize _empty_vertices;
+		VkDeviceSize _empty_indices;
 		std::vector<char*> _buffer_data_ptrs;
 
 	private:
@@ -28,10 +31,10 @@ private:
 		void push_model(const Mesh* mesh);
 
 	public:
-		ModelGroup(Mesh* object, VkDescriptorSetLayout layout);
+		ModelGroup(Mesh* object, VkDescriptorSetLayout layout) noexcept;
 
 		bool try_add_mesh(const Mesh* object);
-		void draw(VkCommandBuffer command_buffer, VkPipelineLayout layout, VkDescriptorSet global_ubo);
+		void draw(VkCommandBuffer command_buffer, VkPipelineLayout layout);
 
 		~ModelGroup();
 	};
@@ -39,12 +42,13 @@ private:
 	std::vector<ModelGroup*> _object_groups;
 
 public:
-	Scene(const std::vector<SceneObject*>& objects);
+	Scene(const std::vector<SceneObject*>& objects) noexcept;
 
 	inline VkDescriptorSetLayout get_descriptor_set_layout()const noexcept { return _model_group_layout; }
 
+	void add_mesh(Mesh* mesh);
 	void add_object(SceneObject* object);
-	void draw(VkCommandBuffer command_buffer, VkPipelineLayout layout, VkDescriptorSet global_ubo);
+	void draw(VkCommandBuffer command_buffer, VkPipelineLayout layout) const noexcept;
 
 	~Scene();
 };

@@ -47,6 +47,8 @@ public:
 	static inline uint32_t get_image_index() noexcept { return core_ptr->_swapchain_info.image_index; }
 	static inline uint32_t get_current_frame() noexcept { return core_ptr->_swapchain_info.current_frame; }
 
+	static VkFormat find_appropriate_format(const std::vector<VkFormat>& candidates, VkFormatFeatureFlagBits features, VkImageTiling tiling) noexcept;
+
 	inline VkResult acquire_next_image(VkSemaphore semaphore, VkFence fence) noexcept{
 		return vkAcquireNextImageKHR(_device, _swapchain, UINT32_MAX, semaphore, fence, &_swapchain_info.image_index);
 	}

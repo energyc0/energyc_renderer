@@ -6,7 +6,7 @@ FreeCamera::FreeCamera() :
 	_pitch(0.0f),
 	_yaw(0.0f),
 	_velocity(0.0f),
-	_right(1.0f,0.0f,0.0f),
+	_right(glm::cross(-camera_up, _forward)),
 	_acceleration(d_acceleration),
 	_deceleration(d_deceleration),
 	_max_velocity(d_max_velocity),
@@ -17,7 +17,7 @@ FreeCamera::FreeCamera(const glm::vec3& pos) :
 	_pitch(0.0f),
 	_yaw(0.0f),
 	_velocity(0.0f),
-	_right(1.0f, 0.0f, 0.0f),
+	_right(glm::cross(-camera_up, _forward)),
 	_acceleration(d_acceleration),
 	_deceleration(d_deceleration),
 	_max_velocity(d_max_velocity),
@@ -26,7 +26,7 @@ FreeCamera::FreeCamera(const glm::vec3& pos) :
 FreeCamera::FreeCamera(const glm::vec3& pos, const glm::vec3& forward) :
 	CameraBase(pos,forward),
 	_velocity(0.0f),
-	_right(glm::cross(_forward, camera_up)),
+	_right(glm::cross(-camera_up, _forward)),
 	_acceleration(d_acceleration),
 	_deceleration(d_deceleration),
 	_max_velocity(d_max_velocity),
@@ -44,7 +44,7 @@ FreeCamera::FreeCamera(const glm::vec3& pos, const glm::vec3& forward) :
 FreeCamera::FreeCamera(const glm::vec3& pos, const glm::vec3& forward, float acceleration, float deceleration, float sensetivity, float max_velocity) :
 	CameraBase(pos, forward),
 	_velocity(0.0f),
-	_right(glm::cross(_forward, camera_up)),
+	_right(glm::cross(-camera_up, _forward)),
 	_acceleration(acceleration),
 	_deceleration(deceleration),
 	_max_velocity(max_velocity),
@@ -84,10 +84,10 @@ void FreeCamera::rotate_camera(float x_delta, float y_delta) {
 	_forward.z = cos(glm::radians(_yaw)) * cos(glm::radians(_pitch));
 	_forward = glm::normalize(_forward);
 
-	_right = glm::cross(_forward, camera_up);
+	_right = glm::cross(-camera_up, _forward);
 }
 
 void FreeCamera::process_position(float delta_time) {
-	_world_pos += _velocity * delta_time;
+	_world_pos += _velocity * delta_time * _max_velocity;
 	_velocity -= _velocity * delta_time * _deceleration;
 }

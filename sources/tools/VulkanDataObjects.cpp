@@ -58,23 +58,14 @@ VulkanFramebuffer::~VulkanFramebuffer() {
 
 VulkanMultipleFramebuffers::VulkanMultipleFramebuffers(uint32_t width,
 	uint32_t height,
-	const std::vector<VkImageView>& attachments,
-	VkRenderPass render_pass,
-	uint32_t framebuffers_count) :
+	const std::vector<std::vector<VkImageView>>& attachments,
+	VkRenderPass render_pass) :
 	VulkanFramebufferBase(width, height) {
 
-	assert((attachments.size() % framebuffers_count == 0));
-	_framebuffers.resize(framebuffers_count);
-	uint32_t framebuffer_attachments_size = attachments.size() / framebuffers_count;
+	_framebuffers.resize(attachments.size());
 
-	uint32_t idx = 0;
-	for (auto& i : _framebuffers) {
-		std::vector<VkImageView> framebuffer_attachments(framebuffer_attachments_size);
-		for (uint32_t j = 0; j < framebuffer_attachments_size; j++) {
-			framebuffer_attachments[j] = attachments[idx + j];
-		}
-		idx += framebuffer_attachments_size;
-		i = create_framebuffer(width, height, framebuffer_attachments, render_pass);
+	for (uint32_t i = 0; i < _framebuffers.size(); i++) {
+		_framebuffers[i] = create_framebuffer(width, height, attachments[i], render_pass);
 	}
 }
 
@@ -91,19 +82,19 @@ VulkanMultipleFramebuffers::~VulkanMultipleFramebuffers() {
 //
 
 VkImageView VulkanImageViewBase::create_image_view(
-	VkImage image, VkFormat format, VkImageViewType type, VkImageAspectFlags aspect, uint32_t layer_count, uint32_t mip_level_count) {
+	VkImage image, VkFormat format, const VulkanImageViewCreateInfo& view_create_info) {
 	VkImageView image_view;
 	
 	VkImageViewCreateInfo create_info{};
 	create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 	create_info.image = image;
 	create_info.format = format;
-	create_info.viewType = type;
-	create_info.subresourceRange.aspectMask = aspect;
+	create_info.viewType = view_create_info.type;
+	create_info.subresourceRange.aspectMask = view_create_info.aspect;
 	create_info.subresourceRange.baseArrayLayer = 0;
 	create_info.subresourceRange.baseMipLevel = 0;
-	create_info.subresourceRange.layerCount = layer_count;
-	create_info.subresourceRange.levelCount = mip_level_count;
+	create_info.subresourceRange.layerCount = view_create_info.layer_count;
+	create_info.subresourceRange.levelCount = view_create_info.mip_level_count;
 	
 	VK_ASSERT(vkCreateImageView(Core::get_device(), &create_info, nullptr, &image_view), "vkCreateImageView() - FAILED");
 
@@ -111,18 +102,18 @@ VkImageView VulkanImageViewBase::create_image_view(
 }
 
 VulkanMultipleImageViews::VulkanMultipleImageViews(
-	const std::vector<VkImage>& images, VkFormat format, VkImageViewType type, VkImageAspectFlags aspect, uint32_t layer_count, uint32_t mip_level_count) {
+	const std::vector<VkImage>& images, VkFormat format, const VulkanImageViewCreateInfo& view_create_info) {
 	_image_views.resize(images.size());
 	for (uint32_t i = 0; i < images.size(); i++) {
-		_image_views[i] = create_image_view(images[i], format, type, aspect, layer_count, mip_level_count);
+		_image_views[i] = create_image_view(images[i], format, view_create_info);
 	}
 }
 
 VulkanMultipleImageViews::VulkanMultipleImageViews(
-	const std::vector<VulkanImage>& vulkan_images, VkImageViewType type, VkImageAspectFlags aspect, uint32_t layer_count, uint32_t mip_level_count) {
+	const std::vector<VulkanImage>& vulkan_images, const VulkanImageViewCreateInfo& view_create_info) {
 	_image_views.resize(vulkan_images.size());
 	for (uint32_t i = 0; i < vulkan_images.size(); i++) {
-		_image_views[i] = create_image_view(vulkan_images[i].get_image(), vulkan_images[i].get_format(), type, aspect, layer_count, mip_level_count);
+		_image_views[i] = create_image_view(vulkan_images[i].get_image(), vulkan_images[i].get_format(), view_create_info);
 	}
 }
 
@@ -132,11 +123,11 @@ VulkanMultipleImageViews::~VulkanMultipleImageViews() {
 	}
 }
 
-VulkanImageView::VulkanImageView(VkImage image, VkFormat format, VkImageViewType type, VkImageAspectFlags aspect, uint32_t layer_count, uint32_t mip_level_count) :
-	_image_view(create_image_view(image,format,type, aspect, layer_count, mip_level_count)) {}
+VulkanImageView::VulkanImageView(VkImage image, VkFormat format, const VulkanImageViewCreateInfo& view_create_info) :
+	_image_view(create_image_view(image,format, view_create_info)) {}
 
-VulkanImageView::VulkanImageView(const VulkanImage& vulkan_image, VkImageViewType type, VkImageAspectFlags aspect, uint32_t layer_count, uint32_t mip_level_count) :
-	VulkanImageView(vulkan_image.get_image(), vulkan_image.get_format(), type, aspect, layer_count, mip_level_count) {}
+VulkanImageView::VulkanImageView(const VulkanImage& vulkan_image, const VulkanImageViewCreateInfo& view_create_info) :
+	VulkanImageView(vulkan_image.get_image(), vulkan_image.get_format(), view_create_info) {}
 
 VulkanImageView::~VulkanImageView() {
 	vkDestroyImageView(Core::get_device(), _image_view, nullptr);
@@ -206,4 +197,44 @@ VulkanBuffer::~VulkanBuffer() {
 	}
 	vkFreeMemory(Core::get_device(), _memory, nullptr);
 	vkDestroyBuffer(Core::get_device(), _buffer, nullptr);
+}
+
+//
+//
+//VulkanImage
+//
+//
+
+VulkanImage::VulkanImage(const VulkanImageCreateInfo& image_create_info):
+	VulkanResizable(image_create_info.width, image_create_info.height), _format(image_create_info.format) {
+	VkImageCreateInfo create_info{};
+	create_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+	create_info.extent.depth = 1.f;
+	create_info.extent.width = image_create_info.width;
+	create_info.extent.height = image_create_info.height;
+	create_info.arrayLayers = image_create_info.array_layers;
+	create_info.format = image_create_info.format;
+	create_info.imageType = VK_IMAGE_TYPE_2D;
+	create_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	create_info.mipLevels = image_create_info.mip_levels;
+	create_info.samples = image_create_info.samples;
+	create_info.tiling = VK_IMAGE_TILING_OPTIMAL;
+	create_info.usage = image_create_info.usage;
+	VK_ASSERT(vkCreateImage(Core::get_device(), &create_info, nullptr, &_image), "vkCreateImage() - FAILED");
+
+	VkMemoryRequirements requirements;
+	vkGetImageMemoryRequirements(Core::get_device(), _image, &requirements);
+
+	VkMemoryAllocateInfo alloc_info{};
+	alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	alloc_info.allocationSize = requirements.size;
+	alloc_info.memoryTypeIndex = find_memory_type(requirements.memoryTypeBits, image_create_info.memory_property);
+	VK_ASSERT(vkAllocateMemory(Core::get_device(), &alloc_info, nullptr, &_memory), "vkAllocateMemory() - FAILED");
+
+	VK_ASSERT(vkBindImageMemory(Core::get_device(), _image, _memory, 0), "vkBindImageMemory() - FAILED");
+}
+
+VulkanImage::~VulkanImage() {
+	vkFreeMemory(Core::get_device(), _memory, nullptr);
+	vkDestroyImage(Core::get_device(), _image, nullptr);
 }

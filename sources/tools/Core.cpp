@@ -344,6 +344,21 @@ void Core::create_swapchain(GLFWwindow* window) {
 	vkGetSwapchainImagesKHR(_device, _swapchain, &_swapchain_info.image_count, nullptr);
 }
 
+VkFormat Core::find_appropriate_format(const std::vector<VkFormat>& candidates, VkFormatFeatureFlagBits features, VkImageTiling tiling) noexcept {
+	for (VkFormat format : candidates) {
+		VkFormatProperties properties;
+		vkGetPhysicalDeviceFormatProperties(core_ptr->_physical_device, format, &properties);
+		if (tiling == VK_IMAGE_TILING_OPTIMAL && (properties.optimalTilingFeatures & features) == features) {
+			return format;
+		}
+		else if (tiling == VK_IMAGE_TILING_LINEAR && (properties.linearTilingFeatures & features) == features) {
+			return format;
+		}
+	}
+
+	LOG_ERROR("Failed to find appropriate format.");
+}
+
 std::vector<VkImage> Core::get_swapchain_images() noexcept {
 	uint32_t image_count = Core::get_swapchain_image_count();
 	std::vector<VkImage> images(image_count);

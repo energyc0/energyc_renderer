@@ -5,7 +5,7 @@ constexpr VkDeviceSize VERTEX_BUFFER_ALLOCATION_SIZE = 100000 * sizeof(Vertex);
 constexpr VkDeviceSize INDEX_BUFFER_ALLOCATION_SIZE = 500000 * sizeof(uint32_t);
 constexpr uint32_t GROUP_MODEL_LIMIT = 30;
 
-Scene::Scene(const std::vector<SceneObject*>& objects) {
+Scene::Scene(const std::vector<SceneObject*>& objects) noexcept {
 
 	auto bindings = Model::get_bindings();
 	VkDescriptorSetLayoutCreateInfo create_info{};
@@ -14,34 +14,36 @@ Scene::Scene(const std::vector<SceneObject*>& objects) {
 	create_info.pBindings = bindings.data();
 	VK_ASSERT(vkCreateDescriptorSetLayout(Core::get_device(), &create_info, nullptr, &_model_group_layout), "vkCreateDescriptorSetLayout(), RendererSolid - FAILED");
 
-	LOG_STATUS("Created DescriptorManager.");
 	for (const auto& i : objects) {
 		add_object(i);
 	}
+	LOG_STATUS("Created new scene.");
 }
 
-void Scene::draw(VkCommandBuffer command_buffer, VkPipelineLayout layout, VkDescriptorSet global_ubo) {
+void Scene::draw(VkCommandBuffer command_buffer, VkPipelineLayout layout) const noexcept{
 	for (auto& group : _object_groups) {
-		group->draw(command_buffer,layout, global_ubo);
+		group->draw(command_buffer,layout);
+	}
+}
+
+void Scene::add_mesh(Mesh* mesh) {
+	bool has_added = false;
+	for (auto& group : _object_groups) {
+		if (group->try_add_mesh(mesh)) {
+			has_added = true;
+			break;
+		}
+	}
+
+	if (!has_added) {
+		_object_groups.push_back(new ModelGroup(mesh, _model_group_layout));
 	}
 }
 
 void Scene::add_object(SceneObject* object) {
 	_objects.push_back(object);
 	if (dynamic_cast<Mesh*>(object) != nullptr) {
-		bool has_added = false;
-		Mesh* mesh = static_cast<Mesh*>(object);
-
-		for (auto& group : _object_groups) {
-			if (group->try_add_mesh(mesh)) {
-				has_added = true;
-				break;
-			}
-		}
-
-		if (!has_added) {
-			_object_groups.push_back(new ModelGroup(mesh, _model_group_layout));
-		}
+		add_mesh(static_cast<Mesh*>(object));
 	}
 }
 
@@ -121,6 +123,12 @@ void Scene::ModelGroup::create_buffers(Mesh* object) {
 		_vertex_buffer = new VulkanBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
 			vertex_size, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	}
+}
+
+void Scene::ModelGroup::push_model(const Mesh* mesh) {
+	const VkDeviceSize vertex_size = mesh->get_vertices_count() * sizeof(Vertex);
+	const VkDeviceSize index_size = mesh->get_indices_count() * sizeof(uint32_t);
+
 	VulkanBuffer staging_vertex_buffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
 		vertex_size,
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
@@ -129,20 +137,18 @@ void Scene::ModelGroup::create_buffers(Mesh* object) {
 		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
 	char* ptr = staging_index_buffer.map_memory(0, index_size);
-	memcpy(ptr, object->get_index_data(), index_size);
+	memcpy(ptr, mesh->get_index_data(), index_size);
 	staging_index_buffer.unmap_memory();
 
 	ptr = staging_vertex_buffer.map_memory(0, vertex_size);
-	memcpy(ptr, object->get_vertex_data(), vertex_size);
+	memcpy(ptr, mesh->get_vertex_data(), vertex_size);
 	staging_vertex_buffer.unmap_memory();
 
 	VkCommandBuffer cmd = CommandManager::begin_single_command_buffer();
-	VulkanBuffer::copy_buffers(cmd, staging_vertex_buffer, *_vertex_buffer, 0, 0, staging_vertex_buffer.get_size());
-	VulkanBuffer::copy_buffers(cmd, staging_index_buffer, *_index_buffer, 0, 0, staging_index_buffer.get_size());
+	VulkanBuffer::copy_buffers(cmd, staging_vertex_buffer, *_vertex_buffer, 0, sizeof(Vertex) * _total_vertices, staging_vertex_buffer.get_size());
+	VulkanBuffer::copy_buffers(cmd, staging_index_buffer, *_index_buffer, 0, sizeof(uint32_t) * _total_indices, staging_index_buffer.get_size());
 	CommandManager::end_single_command_buffer(cmd);
-}
 
-void Scene::ModelGroup::push_model(const Mesh* mesh) {
 	std::vector<void*> ptrs;
 	ptrs.reserve(_buffer_data_ptrs.size());
 	for (char*& ptr : _buffer_data_ptrs) {
@@ -153,24 +159,38 @@ void Scene::ModelGroup::push_model(const Mesh* mesh) {
 
 	_total_vertices += mesh->get_vertices_count();
 	_total_indices += mesh->get_indices_count();
+	_empty_indices -= mesh->get_indices_count() * sizeof(uint32_t);
+	_empty_vertices -= mesh->get_vertices_count() * sizeof(Vertex);
+	_storage_buffer_space -= _descriptor_sets.size();
+	LOG_STATUS("Created model.");
 }
 
-Scene::ModelGroup::ModelGroup(Mesh* object, VkDescriptorSetLayout layout) : _total_indices(0), _total_vertices(0) {
+Scene::ModelGroup::ModelGroup(Mesh* object, VkDescriptorSetLayout layout) noexcept :
+	_total_indices(0),
+	_total_vertices(0),
+	_storage_buffer_space(GROUP_MODEL_LIMIT) {
 	create_descriptor_tools(layout);
 	create_buffers(object);
+	_empty_indices = _index_buffer->get_size();
+	_empty_vertices = _vertex_buffer->get_size();
 	push_model(object);
 	LOG_STATUS("Created new ModelGroup.");
 }
 
-bool Scene::ModelGroup::try_add_mesh(const Mesh* object) {
-	return false;
+bool Scene::ModelGroup::try_add_mesh(const Mesh* mesh) {
+	if (mesh->get_indices_count() * sizeof(uint32_t) > _empty_indices ||
+		mesh->get_vertices_count() * sizeof(Vertex) > _empty_vertices || 
+		_storage_buffer_space < _descriptor_sets.size()) {
+		return false;
+	}
+	push_model(mesh);
+	return true;
 }
 
-void Scene::ModelGroup::draw(VkCommandBuffer command_buffer, VkPipelineLayout layout, VkDescriptorSet global_ubo) {
+void Scene::ModelGroup::draw(VkCommandBuffer command_buffer, VkPipelineLayout layout) {
 	_index_buffer->bind_index_buffer(command_buffer, 0);
 	_vertex_buffer->bind_vertex_buffer(command_buffer, 0);
-	VkDescriptorSet sets[2] = { global_ubo, _descriptor_sets[Core::get_current_frame()] };
-	vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 2, sets, 0, 0);
+	vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 1, 1, &_descriptor_sets[Core::get_current_frame()], 0, 0);
 	for (auto& obj : _models) {
 		obj->draw(command_buffer);
 	}

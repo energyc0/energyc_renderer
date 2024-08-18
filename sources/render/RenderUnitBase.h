@@ -16,7 +16,7 @@ protected:
 public:
 
 	//begin and end render pass
-	virtual void fill_command_buffer(VkCommandBuffer command_buffer) = 0;
+	virtual void fill_command_buffer(VkCommandBuffer command_buffer, const struct CurrentFrameData& frame_data) = 0;
 
 	inline VkRenderPass get_render_pass() const noexcept { return _render_pass; }
 

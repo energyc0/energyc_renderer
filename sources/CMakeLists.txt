@@ -1,7 +1,7 @@
 #sources
 add_library(renderer
-	"managers/RendererApplication.h"
-	"managers/RendererApplication.cpp"
+	"managers/EnergycRenderer.h"
+	"managers/EnergycRenderer.cpp"
 	"managers/CommandManager.h"
 	"managers/CommandManager.cpp"
 	"managers/SyncManager.h"
@@ -29,12 +29,14 @@ add_library(renderer
 	"other/UserController.cpp"
 	"other/Timer.h"
 
-	"render_units/RendererBase.h"
-	"render_units/RendererSolid.h"
-	"render_units/RendererSolid.cpp"
-	"render_units/RenderUnitBase.h"
-	"render_units/RenderUnitSolid.h"
-	"render_units/RenderUnitSolid.cpp"
+	"render/RendererBase.h"
+	"render/RendererSolid.h"
+	"render/RendererSolid.cpp"
+	"render/RenderUnitBase.h"
+	"render/RenderUnitSolid.h"
+	"render/RenderUnitSolid.cpp"
+	"render/RenderManager.h"
+	"render/RenderManager.cpp"
 	)
 
 target_include_directories(renderer PUBLIC ${Vulkan_INCLUDE_DIR})
@@ -45,7 +47,7 @@ target_link_libraries(renderer PUBLIC extern::glfwlib)
 target_include_directories(renderer PUBLIC 
 	"${CMAKE_CURRENT_LIST_DIR}"
 	"${CMAKE_CURRENT_LIST_DIR}/other"
-	"${CMAKE_CURRENT_LIST_DIR}/render_units"
+	"${CMAKE_CURRENT_LIST_DIR}/render"
 	"${CMAKE_CURRENT_LIST_DIR}/tools"
 	"${CMAKE_CURRENT_LIST_DIR}/scene"
 	"${CMAKE_CURRENT_LIST_DIR}/managers"

@@ -25,7 +25,7 @@ layout(location = 2) in vec3 normal;
 layout(location = 0) out vec3 frag_color;
 
 void main(){
-    frag_color = colors[gl_VertexIndex % 3];
+    frag_color = colors[gl_InstanceIndex % 3];
     gl_Position = ubo.perspective * ubo.view * transform.model[gl_InstanceIndex] * vec4(pos, 1.0);
     //gl_Position = ubo.perspective * ubo.view  * vec4(pos, 1.0);
 }

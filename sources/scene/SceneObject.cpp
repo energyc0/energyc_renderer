@@ -32,10 +32,10 @@ std::vector<VkVertexInputBindingDescription> Vertex::get_binding_description() {
 	return bindings;
 }
 
-WorldObject::WorldObject() noexcept : _world_pos(0.f){}
-WorldObject::WorldObject(const glm::vec3& pos) noexcept  : _world_pos(pos) {}
+PositionedObject::PositionedObject() noexcept : _world_pos(0.f){}
+PositionedObject::PositionedObject(const glm::vec3& pos) noexcept  : _world_pos(pos) {}
 
-void WorldObject::set_pos(const glm::vec3& pos) noexcept {
+void PositionedObject::set_pos(const glm::vec3& pos) noexcept {
 	_world_pos = pos;
 }
 
@@ -72,10 +72,38 @@ Mesh Mesh::load_mesh(const char* filename) noexcept {
 	return mesh;
 }
 
+WorldObject::WorldObject(glm::vec3 world_pos,glm::vec3 size,glm::quat rotation):
+	PositionedObject(world_pos), _size(size), _rotation(rotation){}
+
+void WorldObject::set_size(const glm::vec3& size) noexcept {
+	_size = size;
+}
+
+void WorldObject::set_rotation(const glm::quat& rotation) noexcept {
+	_rotation = rotation;
+}
+
 Mesh::Mesh() noexcept : _vertices(), _indices() {}
-Mesh::Mesh(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices) noexcept : _vertices(vertices), _indices(indices) {}
-Mesh::Mesh(std::vector<Vertex>&& vertices, std::vector<uint32_t>&& indices) noexcept : _vertices(std::move(vertices)), _indices(std::move(indices)) {}
-Mesh::Mesh(const char* filename) noexcept : Mesh(load_mesh(filename)) {}
+Mesh::Mesh(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices,
+	glm::vec3 world_pos,glm::vec3 size,	glm::quat rotation) noexcept :
+	WorldObject(world_pos,size,rotation), _vertices(vertices), _indices(indices) {}
+
+Mesh::Mesh(std::vector<Vertex>&& vertices, std::vector<uint32_t>&& indices,
+	glm::vec3 world_pos,
+	glm::vec3 size,
+	glm::quat rotation) noexcept :
+	WorldObject(world_pos, size, rotation),  _vertices(std::move(vertices)), _indices(std::move(indices)) {}
+
+Mesh::Mesh(const char* filename,
+	glm::vec3 world_pos,
+	glm::vec3 size,
+	glm::quat rotation) noexcept :
+	Mesh(load_mesh(filename)) {
+	_world_pos = world_pos;
+	_size = size;
+	_rotation = rotation;
+}
+
 
 void Model::set_size(const glm::vec3& size) noexcept {
 	_size = size;
@@ -103,13 +131,8 @@ Model::Model(const Mesh* mesh,
 	uint32_t instance_index,
 	uint32_t first_vertex,
 	uint32_t first_index,
-	std::vector<void*> _buffer_ptr,
-	glm::vec3 world_pos,
-	glm::vec3 size,
-	glm::quat rotation) noexcept :
-	WorldObject(world_pos),
-	_size(size),
-	_rotation(rotation),
+	std::vector<void*> _buffer_ptr) noexcept :
+	WorldObject(mesh->get_pos(), mesh->get_size(), mesh->get_rotation()),
 	_vertices_count(mesh->get_vertices_count()),
 	_indices_count(mesh->get_indices_count()),
 	_first_buffer_vertex(first_vertex),

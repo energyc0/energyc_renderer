@@ -50,11 +50,10 @@ private:
 public:
 	inline VkFramebuffer get_framebuffer() const noexcept { return _framebuffers[Core::get_image_index()]; }
 
-	VulkanMultipleFramebuffers(uint32_t width,
+	explicit VulkanMultipleFramebuffers(uint32_t width,
 		uint32_t height,
-		const std::vector<VkImageView>& attachments,
-		VkRenderPass render_pass,
-		uint32_t framebuffers_count);
+		const std::vector<std::vector<VkImageView>>&,
+		VkRenderPass render_pass);
 
 	~VulkanMultipleFramebuffers();
 };
@@ -86,7 +85,7 @@ public:
 		const VulkanBuffer& src, const VulkanBuffer& dst,
 		VkDeviceSize src_offset, VkDeviceSize dst_offset, VkDeviceSize size) noexcept;
 
-	VulkanBuffer(VkBufferUsageFlags usage, VkDeviceSize size, VkMemoryPropertyFlags memory_property);
+	explicit VulkanBuffer(VkBufferUsageFlags usage, VkDeviceSize size, VkMemoryPropertyFlags memory_property);
 
 	inline VkDeviceSize get_size()const noexcept { return _size; }
 	inline char* map_memory(VkDeviceSize offset, VkDeviceSize size) noexcept {
@@ -109,25 +108,48 @@ public:
 	~VulkanBuffer();
 };
 
+struct VulkanImageCreateInfo {
+	uint32_t width;
+	uint32_t height;
+	VkFormat format;
+	uint32_t array_layers;
+	uint32_t mip_levels;
+	VkSampleCountFlagBits samples;
+	VkImageUsageFlags usage;
+	VkMemoryPropertyFlags memory_property;
+};
+
 
 class VulkanImage : public VulkanResizable {
 private:
 	VkImage _image;
+	VkDeviceMemory _memory;
 	VkFormat _format;
 
 public:
+	explicit VulkanImage(const VulkanImageCreateInfo& image_create_info);
+
 	inline VkImage get_image() const noexcept { return _image; }
 	inline VkFormat get_format() const noexcept { return _format; }
+
+	~VulkanImage();
 };
 
 class VulkanTexture : public VulkanImage {
 
 };
 
+struct VulkanImageViewCreateInfo {
+	VkImageViewType type;
+	VkImageAspectFlags aspect;
+	uint32_t layer_count;
+	uint32_t mip_level_count;
+};
+
 class VulkanImageViewBase : public VulkanDataObject {
 protected:
 	static VkImageView create_image_view(
-		VkImage image, VkFormat format, VkImageViewType type, VkImageAspectFlags aspect, uint32_t layer_count, uint32_t mip_level_count);
+		VkImage image, VkFormat format, const VulkanImageViewCreateInfo& view_create_info);
 
 	virtual ~VulkanImageViewBase() {}
 };
@@ -137,9 +159,11 @@ private:
 	VkImageView _image_view;
 
 public:
-	VulkanImageView(VkImage image, VkFormat format, VkImageViewType type, VkImageAspectFlags aspect, uint32_t layer_count, uint32_t mip_level_count);
+	explicit VulkanImageView(VkImage image, VkFormat format, const VulkanImageViewCreateInfo& view_create_info);
 
-	VulkanImageView(const VulkanImage& vulkan_image, VkImageViewType type, VkImageAspectFlags aspect, uint32_t layer_count, uint32_t mip_level_count);
+	explicit VulkanImageView(const VulkanImage& vulkan_image, const VulkanImageViewCreateInfo& view_create_info);
+
+	inline VkImageView get_image_view() const noexcept { return _image_view; }
 
 	~VulkanImageView();
 };
@@ -149,13 +173,12 @@ private:
 	std::vector<VkImageView> _image_views;
 
 public:
-	VulkanMultipleImageViews(const std::vector<VkImage>& images, VkFormat format, VkImageViewType type, VkImageAspectFlags aspect,
-		uint32_t layer_count, uint32_t mip_level_count);
+	explicit VulkanMultipleImageViews(const std::vector<VkImage>& images, VkFormat format, const VulkanImageViewCreateInfo& view_create_info);
 
-	VulkanMultipleImageViews(const std::vector<VulkanImage>& vulkan_images, VkImageViewType type, VkImageAspectFlags aspect,
-		uint32_t layer_count, uint32_t mip_level_count);
+	explicit VulkanMultipleImageViews(const std::vector<VulkanImage>& vulkan_images, const VulkanImageViewCreateInfo& view_create_info);
 
 	~VulkanMultipleImageViews();
 
+	inline VkImageView get(size_t idx) const noexcept { return _image_views[idx]; }
 	inline const std::vector<VkImageView>& get_image_views() const noexcept { return _image_views; }
 };

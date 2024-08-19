@@ -1,4 +1,4 @@
-#include "DescriptorManager.h"
+#include "MaterialManager.h"
 #include "SceneObject.h"
 
 constexpr uint32_t DESCRIPTOR_GROUP_MAX_SETS = 10;

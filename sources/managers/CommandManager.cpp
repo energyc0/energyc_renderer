@@ -1,4 +1,5 @@
 #include "CommandManager.h"
+#include "VulkanDataObjects.h"
 #include "Core.h"
 
 CommandManager* CommandManager::cmd_manager_ptr = nullptr;
@@ -50,6 +51,48 @@ VkResult CommandManager::submit_queue(const std::vector<VkCommandBuffer>& cmd,
 	submit.signalSemaphoreCount = signal_semaphores.size();
 	submit.pSignalSemaphores = signal_semaphores.data();
 	return vkQueueSubmit(Core::get_graphics_queue(), 1, &submit, fence);
+}
+
+void CommandManager::copy_buffers(VkCommandBuffer command_buffer,
+	const VulkanBuffer& src, const VulkanBuffer& dst,
+	VkDeviceSize src_offset, VkDeviceSize dst_offset, VkDeviceSize size) noexcept {
+	VkBufferCopy copy{};
+	copy.dstOffset = dst_offset;
+	copy.srcOffset = src_offset;
+	copy.size = size;
+	vkCmdCopyBuffer(command_buffer, src._buffer, dst._buffer, 1, &copy);
+}
+
+void CommandManager::copy_buffer_to_image(VkCommandBuffer command_buffer,
+	const VulkanBuffer& src_buffer, const VulkanImage& dst_image,
+	VkImageLayout dst_image_layout, const VkImageSubresourceLayers& subresource) noexcept {
+
+	VkBufferImageCopy region{};
+	region.bufferImageHeight = dst_image.get_height();
+	region.bufferOffset = 0;
+	region.bufferRowLength = dst_image.get_width();
+	region.imageOffset = { 0,0,0 };
+	region.imageExtent = { dst_image.get_width(), dst_image.get_height(), 1 };
+	region.imageSubresource = subresource;
+	vkCmdCopyBufferToImage(command_buffer, src_buffer._buffer, dst_image.get_image(), dst_image_layout, 1, &region);
+}
+
+void CommandManager::transition_image_layout(VkCommandBuffer command_buffer, const VulkanImage& image,
+	VkPipelineStageFlags src_stage, VkPipelineStageFlags dst_stage,
+	VkAccessFlags src_access, VkAccessFlags dst_access,
+	VkImageLayout old_layout, VkImageLayout new_layout,
+	const VkImageSubresourceRange& subresource_range) {
+	VkImageMemoryBarrier barrier{};
+	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	barrier.srcAccessMask = src_access;
+	barrier.dstAccessMask = dst_access;
+	barrier.image = image.get_image();
+	barrier.oldLayout = old_layout;
+	barrier.newLayout = new_layout;
+	barrier.subresourceRange = subresource_range;
+	barrier.srcQueueFamilyIndex = Core::get_graphics_queue_family_index();
+	barrier.dstQueueFamilyIndex = Core::get_graphics_queue_family_index();
+	vkCmdPipelineBarrier(command_buffer, src_stage, dst_stage, 0, 0, 0, 0, 0, 1, &barrier);
 }
 
 VkCommandBuffer CommandManager::begin_single_command_buffer() noexcept {

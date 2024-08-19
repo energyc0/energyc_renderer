@@ -1,4 +1,7 @@
 #include "VulkanDataObjects.h"
+#include "CommandManager.h"
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
 
 int32_t VulkanDataObject::find_memory_type(uint32_t memory_type_bits, VkMemoryPropertyFlags memory_property) noexcept {
 	VkPhysicalDeviceMemoryProperties phys_dev_memory_property;
@@ -133,6 +136,8 @@ VulkanImageView::~VulkanImageView() {
 	vkDestroyImageView(Core::get_device(), _image_view, nullptr);
 }
 
+VulkanImageView::VulkanImageView() : _image_view(VK_NULL_HANDLE) {}
+
 //
 //
 //VulkanBuffer
@@ -173,16 +178,6 @@ VulkanBuffer::VulkanBuffer(VkBufferUsageFlags usage,VkDeviceSize size, VkMemoryP
 	VK_ASSERT(vkBindBufferMemory(Core::get_device(), _buffer, _memory, 0), "vkBindBufferMemory() - FAILED");
 }
 
-void VulkanBuffer::copy_buffers(VkCommandBuffer command_buffer,
-	const VulkanBuffer& src, const VulkanBuffer& dst,
-	VkDeviceSize src_offset, VkDeviceSize dst_offset, VkDeviceSize size) noexcept {
-	VkBufferCopy copy{};
-	copy.dstOffset = dst_offset;
-	copy.srcOffset = src_offset;
-	copy.size = size;
-	vkCmdCopyBuffer(command_buffer, src._buffer, dst._buffer, 1, &copy);
-}
-
 VkDescriptorBufferInfo VulkanBuffer::get_info(VkDeviceSize offset, VkDeviceSize range) const noexcept {
 	VkDescriptorBufferInfo info{};
 	info.buffer = _buffer;
@@ -206,7 +201,12 @@ VulkanBuffer::~VulkanBuffer() {
 //
 
 VulkanImage::VulkanImage(const VulkanImageCreateInfo& image_create_info):
-	VulkanResizable(image_create_info.width, image_create_info.height), _format(image_create_info.format) {
+	VulkanResizable(image_create_info.width, image_create_info.height),
+	_format(image_create_info.format),
+	_image(create_image(image_create_info)) {}
+
+VkImage VulkanImage::create_image(const VulkanImageCreateInfo& image_create_info) {
+	VkImage image;
 	VkImageCreateInfo create_info{};
 	create_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 	create_info.extent.depth = 1.f;
@@ -220,10 +220,10 @@ VulkanImage::VulkanImage(const VulkanImageCreateInfo& image_create_info):
 	create_info.samples = image_create_info.samples;
 	create_info.tiling = VK_IMAGE_TILING_OPTIMAL;
 	create_info.usage = image_create_info.usage;
-	VK_ASSERT(vkCreateImage(Core::get_device(), &create_info, nullptr, &_image), "vkCreateImage() - FAILED");
+	VK_ASSERT(vkCreateImage(Core::get_device(), &create_info, nullptr, &image), "vkCreateImage() - FAILED");
 
 	VkMemoryRequirements requirements;
-	vkGetImageMemoryRequirements(Core::get_device(), _image, &requirements);
+	vkGetImageMemoryRequirements(Core::get_device(), image, &requirements);
 
 	VkMemoryAllocateInfo alloc_info{};
 	alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
@@ -231,10 +231,118 @@ VulkanImage::VulkanImage(const VulkanImageCreateInfo& image_create_info):
 	alloc_info.memoryTypeIndex = find_memory_type(requirements.memoryTypeBits, image_create_info.memory_property);
 	VK_ASSERT(vkAllocateMemory(Core::get_device(), &alloc_info, nullptr, &_memory), "vkAllocateMemory() - FAILED");
 
-	VK_ASSERT(vkBindImageMemory(Core::get_device(), _image, _memory, 0), "vkBindImageMemory() - FAILED");
+	VK_ASSERT(vkBindImageMemory(Core::get_device(), image, _memory, 0), "vkBindImageMemory() - FAILED");
+
+	return image;
 }
+
+VulkanImage::VulkanImage(VkFormat format) : VulkanResizable(0,0), _format(format), _image(VK_NULL_HANDLE), _memory(VK_NULL_HANDLE) {}
 
 VulkanImage::~VulkanImage() {
 	vkFreeMemory(Core::get_device(), _memory, nullptr);
 	vkDestroyImage(Core::get_device(), _image, nullptr);
+}
+
+//
+//
+//VulkanTexture
+//
+//
+
+VulkanTextureBase::VulkanTextureBase(VkFormat format) : VulkanImage(format), _sampler(VK_NULL_HANDLE) {}
+
+VulkanTextureBase::~VulkanTextureBase(){
+	vkDestroySampler(Core::get_device(), _sampler, nullptr);
+}
+
+VulkanTexture2D::VulkanTexture2D(VkFormat format, const char* filename) noexcept : VulkanTextureBase(format){
+	load_texture(filename);
+	LOG_STATUS("Loaded ", filename);
+}
+
+void VulkanTexture2D::load_texture(const char* filename) {
+	int width, height, comp;
+	auto pixels = stbi_load(filename, &width, &height, &comp, STBI_rgb_alpha);
+
+	if (!pixels) {
+		LOG_ERROR("Failed to load the image: ", filename);
+	}
+
+	_width = width;
+	_height = height;
+
+	VulkanImageCreateInfo image_create_info{};
+	image_create_info.width = width;
+	image_create_info.height = height;
+	image_create_info.mip_levels = 1;
+	image_create_info.memory_property = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+	image_create_info.array_layers = 1;
+	image_create_info.format = _format;
+	image_create_info.samples = VK_SAMPLE_COUNT_1_BIT;
+	image_create_info.usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+	_image = create_image(image_create_info);
+
+	VulkanImageViewCreateInfo image_view_create_info{};
+	image_view_create_info.aspect = VK_IMAGE_ASPECT_COLOR_BIT;
+	image_view_create_info.layer_count = image_create_info.array_layers;
+	image_view_create_info.mip_level_count = image_create_info.mip_levels;
+	image_view_create_info.type = VK_IMAGE_VIEW_TYPE_2D;
+	_image_view = create_image_view(_image, _format, image_view_create_info);
+
+	VulkanBuffer staging_buffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, width * height * 4, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+	void* ptr = staging_buffer.map_memory(0, VK_WHOLE_SIZE);
+	memcpy(ptr, pixels, staging_buffer.get_size());
+	staging_buffer.unmap_memory();
+
+	VkImageSubresourceLayers subresource_layers;
+	subresource_layers.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	subresource_layers.baseArrayLayer = 0;
+	subresource_layers.layerCount = 1;
+	subresource_layers.mipLevel = 0;
+
+	VkImageSubresourceRange subresource_range;
+	subresource_range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	subresource_range.baseArrayLayer = 0;
+	subresource_range.baseMipLevel = 0;
+	subresource_range.layerCount = 1;
+	subresource_range.levelCount = 1;
+
+	auto cmd = CommandManager::begin_single_command_buffer();
+
+	CommandManager::transition_image_layout(cmd, *this,
+		VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+		VK_ACCESS_NONE, VK_ACCESS_TRANSFER_WRITE_BIT,
+		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, subresource_range);
+
+	CommandManager::copy_buffer_to_image(cmd, staging_buffer, *this, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, subresource_layers);
+
+	CommandManager::transition_image_layout(cmd, *this,
+		VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+		VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_COLOR_ATTACHMENT_READ_BIT,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, subresource_range);
+
+	CommandManager::end_single_command_buffer(cmd);
+
+	stbi_image_free(pixels);
+
+	create_sampler();
+}
+
+void VulkanTextureBase::create_sampler() {
+	VkSamplerCreateInfo create_info{};
+	create_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+	create_info.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	create_info.addressModeV = create_info.addressModeU;
+	create_info.addressModeW = create_info.addressModeU;
+	create_info.anisotropyEnable = VK_FALSE;
+	create_info.borderColor = VK_BORDER_COLOR_INT_OPAQUE_WHITE;
+	create_info.magFilter = VK_FILTER_LINEAR;
+	create_info.minFilter = VK_FILTER_LINEAR;
+	create_info.minLod = 0.f;
+	create_info.maxLod = 0.f;
+	create_info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+	create_info.unnormalizedCoordinates = VK_FALSE;
+	create_info.compareEnable = VK_FALSE;
+	VK_ASSERT(vkCreateSampler(Core::get_device(), &create_info, nullptr, &_sampler), "vkCreateSampler() - FAILED");
 }

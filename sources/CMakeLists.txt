@@ -6,8 +6,8 @@ add_library(renderer
 	"managers/CommandManager.cpp"
 	"managers/SyncManager.h"
 	"managers/SyncManager.cpp"
-	"managers/DescriptorManager.h"
-	"managers/DescriptorManager.cpp"
+	"managers/MaterialManager.h"
+	"managers/MaterialManager.cpp"
 
 	"scene/Scene.h"
 	"scene/Scene.cpp"

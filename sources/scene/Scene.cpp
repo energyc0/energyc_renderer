@@ -145,8 +145,8 @@ void Scene::ModelGroup::push_model(const Mesh* mesh) {
 	staging_vertex_buffer.unmap_memory();
 
 	VkCommandBuffer cmd = CommandManager::begin_single_command_buffer();
-	VulkanBuffer::copy_buffers(cmd, staging_vertex_buffer, *_vertex_buffer, 0, sizeof(Vertex) * _total_vertices, staging_vertex_buffer.get_size());
-	VulkanBuffer::copy_buffers(cmd, staging_index_buffer, *_index_buffer, 0, sizeof(uint32_t) * _total_indices, staging_index_buffer.get_size());
+	CommandManager::copy_buffers(cmd, staging_vertex_buffer, *_vertex_buffer, 0, sizeof(Vertex) * _total_vertices, staging_vertex_buffer.get_size());
+	CommandManager::copy_buffers(cmd, staging_index_buffer, *_index_buffer, 0, sizeof(uint32_t) * _total_indices, staging_index_buffer.get_size());
 	CommandManager::end_single_command_buffer(cmd);
 
 	std::vector<void*> ptrs;

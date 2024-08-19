@@ -81,10 +81,6 @@ protected:
 	char* _ptr;
 
 public:
-	static void copy_buffers(VkCommandBuffer command_buffer,
-		const VulkanBuffer& src, const VulkanBuffer& dst,
-		VkDeviceSize src_offset, VkDeviceSize dst_offset, VkDeviceSize size) noexcept;
-
 	explicit VulkanBuffer(VkBufferUsageFlags usage, VkDeviceSize size, VkMemoryPropertyFlags memory_property);
 
 	inline VkDeviceSize get_size()const noexcept { return _size; }
@@ -106,6 +102,8 @@ public:
 	VkDescriptorBufferInfo get_info(VkDeviceSize offset, VkDeviceSize range) const noexcept;
 
 	~VulkanBuffer();
+
+	friend class CommandManager;
 };
 
 struct VulkanImageCreateInfo {
@@ -121,22 +119,26 @@ struct VulkanImageCreateInfo {
 
 
 class VulkanImage : public VulkanResizable {
-private:
+protected:
 	VkImage _image;
 	VkDeviceMemory _memory;
 	VkFormat _format;
 
+protected:
+	VulkanImage(VkFormat format);
+
+	VkImage create_image(const VulkanImageCreateInfo& image_create_info);
 public:
 	explicit VulkanImage(const VulkanImageCreateInfo& image_create_info);
 
 	inline VkImage get_image() const noexcept { return _image; }
 	inline VkFormat get_format() const noexcept { return _format; }
 
-	~VulkanImage();
+	virtual ~VulkanImage();
 };
 
-class VulkanTexture : public VulkanImage {
-
+struct VulkanTextureCreateInfo {
+	VkFormat format;
 };
 
 struct VulkanImageViewCreateInfo {
@@ -155,9 +157,11 @@ protected:
 };
 
 class VulkanImageView : public VulkanImageViewBase {
-private:
+protected:
 	VkImageView _image_view;
 
+protected:
+	VulkanImageView();
 public:
 	explicit VulkanImageView(VkImage image, VkFormat format, const VulkanImageViewCreateInfo& view_create_info);
 
@@ -165,7 +169,7 @@ public:
 
 	inline VkImageView get_image_view() const noexcept { return _image_view; }
 
-	~VulkanImageView();
+	virtual ~VulkanImageView();
 };
 
 class VulkanMultipleImageViews : public VulkanImageViewBase {
@@ -181,4 +185,24 @@ public:
 
 	inline VkImageView get(size_t idx) const noexcept { return _image_views[idx]; }
 	inline const std::vector<VkImageView>& get_image_views() const noexcept { return _image_views; }
+};
+
+class VulkanTextureBase : public VulkanImage, public VulkanImageView {
+protected:
+	VkSampler _sampler;
+
+protected:
+	VulkanTextureBase(VkFormat format);
+
+	void create_sampler();
+public:
+	virtual ~VulkanTextureBase();
+};
+
+class VulkanTexture2D : public VulkanTextureBase{
+private:
+	void load_texture(const char* filename);
+
+public:
+	VulkanTexture2D(VkFormat format, const char* filename) noexcept;
 };

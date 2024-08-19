@@ -24,8 +24,23 @@ public:
 		const std::vector<VkSemaphore>& signal_semaphores,
 		VkFence fence) noexcept;
 
+	static void copy_buffers(VkCommandBuffer command_buffer,
+		const class VulkanBuffer& src, const class VulkanBuffer& dst,
+		VkDeviceSize src_offset, VkDeviceSize dst_offset, VkDeviceSize size) noexcept;
+	
+	static void copy_buffer_to_image(VkCommandBuffer command_buffer,
+		const class VulkanBuffer& src_buffer, const class VulkanImage& dst_image,
+		VkImageLayout dst_image_layout, const VkImageSubresourceLayers& subresource) noexcept;
+
+	static void transition_image_layout(VkCommandBuffer command_buffer, const VulkanImage& image,
+		VkPipelineStageFlags src_stage, VkPipelineStageFlags dst_stage,
+		VkAccessFlags src_access, VkAccessFlags dst_access,
+		VkImageLayout old_layout, VkImageLayout new_layout,
+		const VkImageSubresourceRange& subresource_range);
+
 	static VkCommandBuffer begin_single_command_buffer() noexcept;
 	static VkResult end_single_command_buffer(VkCommandBuffer command_buffer) noexcept;
 
 	~CommandManager();
+
 };

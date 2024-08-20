@@ -17,6 +17,7 @@ RenderUnitSolid::RenderUnitSolid(const RenderUnitSolidCreateInfo& unit_create_in
 	RendererSolidCreateInfo create_info{
 		_render_pass,
 		unit_create_info.global_UBO_descriptor_set_layout,
+		unit_create_info.material_manager,
 		unit_create_info.scene
 	};
 	_renderer_solid = new RendererSolid(create_info);
@@ -137,10 +138,17 @@ void RenderUnitSolid::create_framebuffers() {
 void RenderUnitSolid::create_descriptor_tools(const RenderUnitSolidCreateInfo& unit_create_info) {
 	
 	{
+		VkPushConstantRange push_range{};
+		push_range.offset = 0;
+		push_range.size = sizeof(glm::vec3);
+		push_range.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+
 		VkPipelineLayoutCreateInfo create_info{};
 		create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 		create_info.setLayoutCount = 1;
 		create_info.pSetLayouts = &unit_create_info.global_UBO_descriptor_set_layout;
+		create_info.pPushConstantRanges = &push_range;
+		create_info.pushConstantRangeCount = 1;
 		VK_ASSERT(vkCreatePipelineLayout(Core::get_device(), &create_info, nullptr, &_pipeline_layout), "vkCreatePipelineLayout(), RenderUnitSolid - FAILED.");
 		LOG_STATUS("Created RendererUnitSolid pipeline layout.");
 	}
@@ -172,7 +180,10 @@ void RenderUnitSolid::fill_command_buffer(VkCommandBuffer command_buffer, const 
 	vkCmdSetViewport(command_buffer, 0, 1, &viewport);
 	vkCmdSetScissor(command_buffer, 0, 1, &begin_info.renderArea);
 
+	auto camera_pos = _camera.get_world_position();
+
 	vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipeline_layout, 0, 1, &frame_data.global_UBO, 0, 0);
+	vkCmdPushConstants(command_buffer, _pipeline_layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::vec3), &camera_pos);
 	_renderer_solid->fill_command_buffer(command_buffer);
 	_renderer_gui->fill_command_buffer(command_buffer);
 	vkCmdEndRenderPass(command_buffer);

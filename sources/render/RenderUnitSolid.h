@@ -4,6 +4,7 @@
 
 struct RenderUnitSolidCreateInfo {
 	const class Scene& scene;
+	const std::unique_ptr<class MaterialManager>& material_manager;
 	const class CameraBase& camera;
 	const class Window& window;
 	struct GuiInfo& gui_info;

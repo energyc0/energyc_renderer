@@ -24,12 +24,10 @@ class RendererBaseExt : public RendererBase {
 protected:
 	VkPipelineLayout _pipeline_layout;
 	VkPipeline _graphics_pipeline;
-	VkDescriptorSetLayout _descriptor_set_layout;
 
 protected:
 	explicit RendererBaseExt() :
 		_pipeline_layout(VK_NULL_HANDLE),
-		_descriptor_set_layout(VK_NULL_HANDLE),
 		_graphics_pipeline(VK_NULL_HANDLE) {}
 
 public:
@@ -39,6 +37,5 @@ public:
 	virtual ~RendererBaseExt() {
 		vkDestroyPipeline(Core::get_device(), _graphics_pipeline, nullptr);
 		vkDestroyPipelineLayout(Core::get_device(), _pipeline_layout, nullptr);
-		vkDestroyDescriptorSetLayout(Core::get_device(), _descriptor_set_layout, nullptr);
 	}
 };

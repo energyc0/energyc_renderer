@@ -6,7 +6,8 @@ class VulkanDataObject {
 protected:
 	static int32_t find_memory_type(uint32_t memory_type_bits, VkMemoryPropertyFlags memory_property) noexcept;
 public:
-	VulkanDataObject() {}
+	VulkanDataObject() noexcept {}
+	VulkanDataObject(VulkanDataObject&& obj) noexcept {}
 	VulkanDataObject(const VulkanDataObject& obj) = delete;
 	VulkanDataObject& operator=(VulkanDataObject& obj) = delete;
 	virtual ~VulkanDataObject() {}
@@ -19,7 +20,8 @@ protected:
 
 protected:
 	virtual ~VulkanResizable() {}
-	VulkanResizable(uint32_t width, uint32_t height) : _width(width), _height(height) {}
+	VulkanResizable(uint32_t width, uint32_t height) noexcept  : _width(width), _height(height) {}
+	VulkanResizable(VulkanResizable&& obj) noexcept : _width(obj._width), _height(obj._height) {}
 public:
 
 	inline uint32_t get_width() const noexcept { return _width; }
@@ -34,7 +36,7 @@ protected:
 		const std::vector<VkImageView>& attachments,
 		VkRenderPass render_pass) noexcept;
 
-	VulkanFramebufferBase(uint32_t width, uint32_t height) :
+	VulkanFramebufferBase(uint32_t width, uint32_t height) noexcept :
 		VulkanResizable(width,height) {}
 
 public:
@@ -53,7 +55,7 @@ public:
 	explicit VulkanMultipleFramebuffers(uint32_t width,
 		uint32_t height,
 		const std::vector<std::vector<VkImageView>>&,
-		VkRenderPass render_pass);
+		VkRenderPass render_pass) noexcept;
 
 	~VulkanMultipleFramebuffers();
 };
@@ -68,7 +70,7 @@ public:
 	VulkanFramebuffer(uint32_t width,
 		uint32_t height,
 		std::vector<VkImageView>& attachments,
-		VkRenderPass render_pass);
+		VkRenderPass render_pass) noexcept;
 
 	~VulkanFramebuffer();
 };
@@ -81,7 +83,7 @@ protected:
 	char* _ptr;
 
 public:
-	explicit VulkanBuffer(VkBufferUsageFlags usage, VkDeviceSize size, VkMemoryPropertyFlags memory_property);
+	explicit VulkanBuffer(VkBufferUsageFlags usage, VkDeviceSize size, VkMemoryPropertyFlags memory_property) noexcept;
 
 	inline VkDeviceSize get_size()const noexcept { return _size; }
 	inline char* map_memory(VkDeviceSize offset, VkDeviceSize size) noexcept {
@@ -125,11 +127,12 @@ protected:
 	VkFormat _format;
 
 protected:
-	VulkanImage(VkFormat format);
+	VulkanImage(VkFormat format) noexcept;
 
 	VkImage create_image(const VulkanImageCreateInfo& image_create_info);
 public:
-	explicit VulkanImage(const VulkanImageCreateInfo& image_create_info);
+	explicit VulkanImage(const VulkanImageCreateInfo& image_create_info) noexcept;
+	VulkanImage(VulkanImage&& image) noexcept;
 
 	inline VkImage get_image() const noexcept { return _image; }
 	inline VkFormat get_format() const noexcept { return _format; }
@@ -161,11 +164,12 @@ protected:
 	VkImageView _image_view;
 
 protected:
-	VulkanImageView();
+	VulkanImageView() noexcept;
 public:
-	explicit VulkanImageView(VkImage image, VkFormat format, const VulkanImageViewCreateInfo& view_create_info);
+	explicit VulkanImageView(VkImage image, VkFormat format, const VulkanImageViewCreateInfo& view_create_info) noexcept;
 
-	explicit VulkanImageView(const VulkanImage& vulkan_image, const VulkanImageViewCreateInfo& view_create_info);
+	explicit VulkanImageView(const VulkanImage& vulkan_image, const VulkanImageViewCreateInfo& view_create_info) noexcept;
+	VulkanImageView(VulkanImageView&& image_view) noexcept;
 
 	inline VkImageView get_image_view() const noexcept { return _image_view; }
 
@@ -177,9 +181,11 @@ private:
 	std::vector<VkImageView> _image_views;
 
 public:
-	explicit VulkanMultipleImageViews(const std::vector<VkImage>& images, VkFormat format, const VulkanImageViewCreateInfo& view_create_info);
+	explicit VulkanMultipleImageViews(const std::vector<VkImage>& images, VkFormat format, const VulkanImageViewCreateInfo& view_create_info) noexcept;
 
-	explicit VulkanMultipleImageViews(const std::vector<VulkanImage>& vulkan_images, const VulkanImageViewCreateInfo& view_create_info);
+	explicit VulkanMultipleImageViews(const std::vector<VulkanImage>& vulkan_images, const VulkanImageViewCreateInfo& view_create_info) noexcept;
+	 
+	VulkanMultipleImageViews(VulkanMultipleImageViews&& image_views) noexcept;
 
 	~VulkanMultipleImageViews();
 
@@ -192,7 +198,10 @@ protected:
 	VkSampler _sampler;
 
 protected:
-	VulkanTextureBase(VkFormat format);
+	VulkanTextureBase(VkFormat format) noexcept;
+
+	VulkanTextureBase(VulkanTextureBase&& texture) noexcept;
+	VulkanTextureBase(const VulkanTextureBase& texture) noexcept;
 
 	void create_sampler();
 public:
@@ -204,5 +213,9 @@ private:
 	void load_texture(const char* filename);
 
 public:
+	VulkanTexture2D();
 	VulkanTexture2D(VkFormat format, const char* filename) noexcept;
+	VulkanTexture2D(VulkanTexture2D&& texture) noexcept;
+
+	VkDescriptorImageInfo get_info(VkImageLayout layout) const noexcept;
 };

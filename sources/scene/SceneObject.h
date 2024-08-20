@@ -8,6 +8,7 @@ struct Vertex {
 	alignas(16) glm::vec3 pos;
 	alignas(16) glm::vec3 color;
 	alignas(16) glm::vec3 normal;
+	alignas(16) glm::vec2 uv;
 
 	static std::vector<VkVertexInputAttributeDescription> get_attribute_description();
 	static std::vector<VkVertexInputBindingDescription> get_binding_description();
@@ -57,26 +58,35 @@ private:
 	std::vector<Vertex> _vertices;
 	std::vector<uint32_t> _indices;
 
-	static Mesh load_mesh(const char* filename) noexcept;
+	int32_t _material_index;
+
+	static Mesh load_mesh(const std::string& filename) noexcept;
 	Mesh() noexcept;
 public:
+	Mesh(const Mesh& mesh);
+	Mesh(Mesh&& mesh);
+
 	Mesh(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices,
 		glm::vec3 world_pos = glm::vec3(0.f),
 		glm::vec3 size = glm::vec3(1.f),
-		glm::quat rotation = glm::vec3(0.f)) noexcept;
+		glm::quat rotation = glm::vec3(0.f),
+		int32_t material_index = -1) noexcept;
 	Mesh(std::vector<Vertex>&& vertices, std::vector<uint32_t>&& indices,
 		glm::vec3 world_pos = glm::vec3(0.f),
 		glm::vec3 size = glm::vec3(1.f),
-		glm::quat rotation = glm::vec3(0.f)) noexcept;
+		glm::quat rotation = glm::vec3(0.f),
+		int32_t material_index = -1) noexcept;
 	Mesh(const char* filename,
 		glm::vec3 world_pos = glm::vec3(0.f),
 		glm::vec3 size = glm::vec3(1.f),
 		glm::quat rotation = glm::vec3(0.f)) noexcept;
 
+	inline void set_material_index(int32_t idx) noexcept { _material_index = idx; }
+	inline int32_t get_material_index() const noexcept { return _material_index; }
 	inline uint32_t get_vertices_count() const noexcept { return _vertices.size(); }
 	inline uint32_t get_indices_count() const noexcept { return _indices.size(); }
-	inline const Vertex* get_vertex_data()const noexcept { return _vertices.data(); }
-	inline const uint32_t* get_index_data()const noexcept { return _indices.data(); }
+	inline const Vertex* get_vertex_data() const noexcept { return _vertices.data(); }
+	inline const uint32_t* get_index_data() const noexcept { return _indices.data(); }
 };
 
 class Model : public WorldObject {
@@ -92,6 +102,8 @@ protected:
 	std::vector<void*> _model_transform_ptr;
 	std::vector<bool> _is_copied = std::vector<bool>(Core::get_swapchain_image_count(),true);
 	bool _is_transformed = true;
+
+	int32_t _material_index;
 protected:
 
 	void set_new_transform() noexcept;
@@ -107,6 +119,9 @@ public:
 	virtual void set_pos(const glm::vec3& pos) noexcept;
 	virtual void set_size(const glm::vec3& size) noexcept;
 	virtual void set_rotation(const glm::quat& rotation) noexcept;
+	virtual void set_material(const class ObjectMaterial& material) noexcept;
+
+	inline int32_t get_material_index() const noexcept { return _material_index; }
 
 	inline void copy_to_buffer() noexcept { memcpy(_model_transform_ptr[Core::get_current_frame()], &_transform, sizeof(glm::mat4)); }
 
@@ -128,4 +143,20 @@ public:
 		}
 		vkCmdDrawIndexed(command_buffer, _indices_count, 1, _first_buffer_index, 0, _instance_index);
 	}
+};
+
+struct PointLightData {
+	alignas(16) glm::vec3 pos;
+	alignas(16) glm::vec3 color;
+};
+
+class PointLight : public PositionedObject {
+protected:
+	glm::vec3 _color;
+public:
+	PointLight(const glm::vec3& position = glm::vec3(0.f), const glm::vec3& color = glm::vec3(1.f));
+
+	inline PointLightData get_data() const noexcept { return PointLightData{ _world_pos,_color }; }
+
+	static std::vector<VkDescriptorSetLayoutBinding> get_bindings()noexcept;
 };

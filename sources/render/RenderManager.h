@@ -6,6 +6,14 @@ public:
 	VkDescriptorSet global_UBO;
 };
 
+struct RenderManagerCreateInfo {
+	const class Scene& scene;
+	const class CameraBase& camera;
+	const class Window& window;
+	struct GuiInfo& gui_info;
+	const std::unique_ptr<class MaterialManager>& material_manager;
+};
+
 class RenderManager {
 private:
 	const class CameraBase& _camera;
@@ -23,7 +31,7 @@ private:
 	void create_buffers();
 	void create_descritor_tools();
 public:
-	RenderManager(class Scene& scene, const class CameraBase& camera, const class Window& window, struct GuiInfo& gui_info);
+	RenderManager(const RenderManagerCreateInfo& render_manager_create_info) noexcept;
 
 	void update_descriptor_sets();
 	void render(VkCommandBuffer command_buffer);

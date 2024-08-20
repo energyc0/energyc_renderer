@@ -10,7 +10,7 @@ struct GlobalData {
 };
 
 
-RenderManager::RenderManager(Scene& scene, const CameraBase& camera, const class Window& window, struct GuiInfo& gui_info) : _camera(camera) {
+RenderManager::RenderManager(const RenderManagerCreateInfo& render_manager_create_info) noexcept: _camera(render_manager_create_info.camera) {
 	std::shared_ptr<VulkanImage> depth_image;
 	std::shared_ptr<VulkanImageView> depth_image_view;
 	create_images(depth_image, depth_image_view);
@@ -18,10 +18,11 @@ RenderManager::RenderManager(Scene& scene, const CameraBase& camera, const class
 	create_descritor_tools();
 
 	RenderUnitSolidCreateInfo solid_create_info{
-		scene,
-		camera,
-		window,
-		gui_info,
+		render_manager_create_info.scene,
+		render_manager_create_info.material_manager,
+		render_manager_create_info.camera,
+		render_manager_create_info.window,
+		render_manager_create_info.gui_info,
 		depth_image,
 		depth_image_view,
 		_descriptor_set_layout

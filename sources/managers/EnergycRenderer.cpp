@@ -1,28 +1,56 @@
 #include "EnergycRenderer.h"
+#include "MaterialManager.h"
 #include "Scene.h"
 
 const std::string sphere_filename = std::string(RENDERER_DIRECTORY) + "/assets/sphere.obj";
+const std::string cube_filename = std::string(RENDERER_DIRECTORY) + "/assets/cube.obj";
 
 EnergycRenderer::EnergycRenderer(int width, int height, const char* application_name, const char* engine_name) :
 	_window(width, height, application_name),
 	_core(_window.get_window(), application_name, engine_name),
 	_camera(glm::vec3(0.0f, 0.f, -10.f)),
-	_controller(_window, _camera) {
+	_controller(_window, _camera),
+	_material_manager(new MaterialManager()){
+
+	auto rusted_iron = _material_manager->create_new_material(
+		"Rusted iron",
+		(std::string(RENDERER_DIRECTORY) + "/assets/rustediron2_basecolor.png").c_str(),
+		(std::string(RENDERER_DIRECTORY) + "/assets/rustediron2_metallic.png").c_str(),
+		(std::string(RENDERER_DIRECTORY) + "/assets/rustediron2_roughness.png").c_str(),
+		(std::string(RENDERER_DIRECTORY) + "/assets/rustediron2_normal.png").c_str());
+
 	Mesh* sphere1 = new Mesh(sphere_filename.c_str());
-	Mesh* sphere2 = new Mesh(sphere_filename.c_str());
+	Mesh* sphere2 = new Mesh(*sphere1);
+	Mesh* cube = new Mesh(cube_filename.c_str());
+	PointLight* light1 = new PointLight();
 
 	sphere1->set_pos(glm::vec3(10.f));
 	sphere1->set_size(glm::vec3(3.f));
+	sphere1->set_material_index(rusted_iron.get_index());
 
 	sphere2->set_pos(glm::vec3(- 10.f, 0.f, 0.f));
 	sphere2->set_size(glm::vec3(1.f));
+	sphere2->set_material_index(rusted_iron.get_index());
 
-	Scene* scene = new Scene({});
+	cube->set_pos(glm::vec3(-10.f));
+	cube->set_material_index(rusted_iron.get_index());
+
+	Scene* scene = new Scene(_material_manager);
 	scene->add_object(sphere1);
 	scene->add_object(sphere2);
+	scene->add_object(light1);
+	scene->add_object(cube);
 
 	_scenes.push_back(scene);
-	_render_manager = new RenderManager(*_scenes[0], _controller.get_camera(), _window, _gui_info);
+
+	RenderManagerCreateInfo render_manager_create_info{
+		*_scenes[0],
+		_controller.get_camera(),
+		_window,
+		_gui_info,
+		_material_manager
+	};
+	_render_manager = new RenderManager(render_manager_create_info);
 	LOG_STATUS("Application start.");
 }
 

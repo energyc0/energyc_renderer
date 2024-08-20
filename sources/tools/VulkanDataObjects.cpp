@@ -51,7 +51,7 @@ VkFramebuffer VulkanFramebufferBase::create_framebuffer(
 VulkanFramebuffer::VulkanFramebuffer(uint32_t width,
 	uint32_t height,
 	std::vector<VkImageView>& attachments,
-	VkRenderPass render_pass) :
+	VkRenderPass render_pass) noexcept :
 	VulkanFramebufferBase(width, height),
 	_framebuffer(create_framebuffer(width, height, attachments, render_pass)) {}
 
@@ -62,7 +62,7 @@ VulkanFramebuffer::~VulkanFramebuffer() {
 VulkanMultipleFramebuffers::VulkanMultipleFramebuffers(uint32_t width,
 	uint32_t height,
 	const std::vector<std::vector<VkImageView>>& attachments,
-	VkRenderPass render_pass) :
+	VkRenderPass render_pass) noexcept :
 	VulkanFramebufferBase(width, height) {
 
 	_framebuffers.resize(attachments.size());
@@ -105,7 +105,7 @@ VkImageView VulkanImageViewBase::create_image_view(
 }
 
 VulkanMultipleImageViews::VulkanMultipleImageViews(
-	const std::vector<VkImage>& images, VkFormat format, const VulkanImageViewCreateInfo& view_create_info) {
+	const std::vector<VkImage>& images, VkFormat format, const VulkanImageViewCreateInfo& view_create_info) noexcept {
 	_image_views.resize(images.size());
 	for (uint32_t i = 0; i < images.size(); i++) {
 		_image_views[i] = create_image_view(images[i], format, view_create_info);
@@ -113,12 +113,14 @@ VulkanMultipleImageViews::VulkanMultipleImageViews(
 }
 
 VulkanMultipleImageViews::VulkanMultipleImageViews(
-	const std::vector<VulkanImage>& vulkan_images, const VulkanImageViewCreateInfo& view_create_info) {
+	const std::vector<VulkanImage>& vulkan_images, const VulkanImageViewCreateInfo& view_create_info) noexcept {
 	_image_views.resize(vulkan_images.size());
 	for (uint32_t i = 0; i < vulkan_images.size(); i++) {
 		_image_views[i] = create_image_view(vulkan_images[i].get_image(), vulkan_images[i].get_format(), view_create_info);
 	}
 }
+
+VulkanMultipleImageViews::VulkanMultipleImageViews(VulkanMultipleImageViews&& image_views) noexcept : _image_views(std::move(image_views._image_views)){}
 
 VulkanMultipleImageViews::~VulkanMultipleImageViews() {
 	for (auto& i : _image_views) {
@@ -126,17 +128,19 @@ VulkanMultipleImageViews::~VulkanMultipleImageViews() {
 	}
 }
 
-VulkanImageView::VulkanImageView(VkImage image, VkFormat format, const VulkanImageViewCreateInfo& view_create_info) :
+VulkanImageView::VulkanImageView(VkImage image, VkFormat format, const VulkanImageViewCreateInfo& view_create_info) noexcept :
 	_image_view(create_image_view(image,format, view_create_info)) {}
 
-VulkanImageView::VulkanImageView(const VulkanImage& vulkan_image, const VulkanImageViewCreateInfo& view_create_info) :
+VulkanImageView::VulkanImageView(const VulkanImage& vulkan_image, const VulkanImageViewCreateInfo& view_create_info) noexcept :
 	VulkanImageView(vulkan_image.get_image(), vulkan_image.get_format(), view_create_info) {}
+
+VulkanImageView::VulkanImageView(VulkanImageView&& image_view) noexcept : _image_view(image_view._image_view) {}
 
 VulkanImageView::~VulkanImageView() {
 	vkDestroyImageView(Core::get_device(), _image_view, nullptr);
 }
 
-VulkanImageView::VulkanImageView() : _image_view(VK_NULL_HANDLE) {}
+VulkanImageView::VulkanImageView() noexcept : _image_view(VK_NULL_HANDLE) {}
 
 //
 //
@@ -144,7 +148,7 @@ VulkanImageView::VulkanImageView() : _image_view(VK_NULL_HANDLE) {}
 //
 //
 
-VulkanBuffer::VulkanBuffer(VkBufferUsageFlags usage,VkDeviceSize size, VkMemoryPropertyFlags memory_property) : _ptr(nullptr), _size(size){
+VulkanBuffer::VulkanBuffer(VkBufferUsageFlags usage,VkDeviceSize size, VkMemoryPropertyFlags memory_property) noexcept : _ptr(nullptr), _size(size){
 	VkBufferCreateInfo buffer_create_info{};
 	buffer_create_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 	buffer_create_info.usage = usage;
@@ -200,10 +204,13 @@ VulkanBuffer::~VulkanBuffer() {
 //
 //
 
-VulkanImage::VulkanImage(const VulkanImageCreateInfo& image_create_info):
+VulkanImage::VulkanImage(const VulkanImageCreateInfo& image_create_info) noexcept :
 	VulkanResizable(image_create_info.width, image_create_info.height),
 	_format(image_create_info.format),
 	_image(create_image(image_create_info)) {}
+
+VulkanImage::VulkanImage(VulkanImage&& image) noexcept : VulkanResizable(image._width, image._height),
+	_image(image._image), _memory(image._memory), _format(image._format) {}
 
 VkImage VulkanImage::create_image(const VulkanImageCreateInfo& image_create_info) {
 	VkImage image;
@@ -236,7 +243,7 @@ VkImage VulkanImage::create_image(const VulkanImageCreateInfo& image_create_info
 	return image;
 }
 
-VulkanImage::VulkanImage(VkFormat format) : VulkanResizable(0,0), _format(format), _image(VK_NULL_HANDLE), _memory(VK_NULL_HANDLE) {}
+VulkanImage::VulkanImage(VkFormat format) noexcept : VulkanResizable(0,0), _format(format), _image(VK_NULL_HANDLE), _memory(VK_NULL_HANDLE) {}
 
 VulkanImage::~VulkanImage() {
 	vkFreeMemory(Core::get_device(), _memory, nullptr);
@@ -249,17 +256,38 @@ VulkanImage::~VulkanImage() {
 //
 //
 
-VulkanTextureBase::VulkanTextureBase(VkFormat format) : VulkanImage(format), _sampler(VK_NULL_HANDLE) {}
+VulkanTextureBase::VulkanTextureBase(VkFormat format) noexcept : VulkanImage(format), _sampler(VK_NULL_HANDLE) {}
+
+VulkanTextureBase::VulkanTextureBase(const VulkanTextureBase& texture) noexcept : _sampler(texture._sampler), VulkanImage(texture._format) {
+	_image = texture._image;
+	_image_view = texture._image_view;
+	_memory = texture._memory;
+	_width = texture._width;
+	_height = texture._height;
+}
+
+VulkanTextureBase::VulkanTextureBase(VulkanTextureBase&& texture) noexcept : VulkanTextureBase(texture) {}
 
 VulkanTextureBase::~VulkanTextureBase(){
 	vkDestroySampler(Core::get_device(), _sampler, nullptr);
 }
 
+VulkanTexture2D::VulkanTexture2D() : VulkanTextureBase(VK_FORMAT_UNDEFINED) {}
+
 VulkanTexture2D::VulkanTexture2D(VkFormat format, const char* filename) noexcept : VulkanTextureBase(format){
 	load_texture(filename);
-	LOG_STATUS("Loaded ", filename);
 }
 
+VulkanTexture2D::VulkanTexture2D(VulkanTexture2D&& texture) noexcept : VulkanTextureBase(texture){}
+
+VkDescriptorImageInfo VulkanTexture2D::get_info(VkImageLayout layout) const noexcept {
+	VkDescriptorImageInfo info{};
+	info.imageLayout = layout;
+	info.imageView = _image_view;
+	info.sampler = _sampler;
+
+	return info;
+}
 void VulkanTexture2D::load_texture(const char* filename) {
 	int width, height, comp;
 	auto pixels = stbi_load(filename, &width, &height, &comp, STBI_rgb_alpha);
@@ -267,6 +295,8 @@ void VulkanTexture2D::load_texture(const char* filename) {
 	if (!pixels) {
 		LOG_ERROR("Failed to load the image: ", filename);
 	}
+
+	LOG_STATUS("Loaded ", filename);
 
 	_width = width;
 	_height = height;

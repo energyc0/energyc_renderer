@@ -20,6 +20,7 @@ private:
 	FreeCamera _camera;
 	FreeCameraController _controller;
 
+	std::unique_ptr<class MaterialManager> _material_manager;
 	std::vector<class Scene*> _scenes;
 
 	Timer<> _timer;

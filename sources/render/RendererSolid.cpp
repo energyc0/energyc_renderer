@@ -4,6 +4,7 @@
 #include "Scene.h"
 #include "RenderManager.h"
 #include "RendererGui.h"
+#include "MaterialManager.h"
 #include <array>
 
 const std::string vertex_shader_spv_path = std::string(RENDERER_DIRECTORY) + "/shaders/spir-v/solid_vert.spv";
@@ -30,30 +31,22 @@ void RendererSolid::create_descriptor_tools(const RendererSolidCreateInfo& rende
 	}
 
 	{
-		auto model_bindings = Model::get_bindings();
-		auto global_bindings = RenderManager::get_bindings();
-		std::vector<VkDescriptorSetLayoutBinding> bindings;
-		bindings.reserve(global_bindings.size() + model_bindings.size());
-		for (auto& i : global_bindings) {
-			bindings.push_back(i);
-		}
-		for (auto& i : model_bindings) {
-			bindings.push_back(i);
-		}
-		VkDescriptorSetLayoutCreateInfo create_info{};
-		create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-		create_info.bindingCount = bindings.size();
-		create_info.pBindings = bindings.data();
-		VK_ASSERT(vkCreateDescriptorSetLayout(Core::get_device(), &create_info, nullptr, &_descriptor_set_layout), "vkCreateDescriptorSetLayout(), RendererSolid - FAILED");
-		LOG_STATUS("Created RendererSolid descriptor set layout.");
-	}
+		VkPushConstantRange push_range{};
+		push_range.offset = 0;
+		push_range.size = sizeof(glm::vec3);
+		push_range.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
-	{
-		VkDescriptorSetLayout layouts[2] = { renderer_create_info.render_unit_set_layout, _scene.get_descriptor_set_layout() };
+		VkDescriptorSetLayout layouts[3] = { 
+			renderer_create_info.render_unit_set_layout,
+			_scene.get_descriptor_set_layout(),
+			renderer_create_info.material_manager->get_descriptor_set_layout()
+		};
 		VkPipelineLayoutCreateInfo create_info{};
 		create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 		create_info.pSetLayouts = layouts;
-		create_info.setLayoutCount = 2;
+		create_info.setLayoutCount = 3;
+		create_info.pPushConstantRanges = &push_range;
+		create_info.pushConstantRangeCount = 1;
 		VK_ASSERT(vkCreatePipelineLayout(Core::get_device(), &create_info, nullptr, &_pipeline_layout), "vkCreatePipelineLayout() RendererSolid - FAILED");
 		LOG_STATUS("Created RendererSolid pipeline layout.");
 	}
@@ -81,8 +74,6 @@ void RendererSolid::create_pipeline(const RendererSolidCreateInfo& renderer_crea
 	auto color_blend_attachment = utils::set_pipeline_color_blend_attachment_state();
 	std::vector<VkPipelineColorBlendAttachmentState> color_blend_attachments{ color_blend_attachment };
 	auto color_blend = utils::set_pipeline_color_blend_state(color_blend_attachments);
-
-
 
 	VkGraphicsPipelineCreateInfo create_info{};
 	create_info.layout = _pipeline_layout;

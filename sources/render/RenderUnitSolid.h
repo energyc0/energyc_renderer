@@ -3,7 +3,7 @@
 #include "RenderUnitBase.h"
 
 struct RenderUnitSolidCreateInfo {
-	const class Scene& scene;
+	const std::shared_ptr<class Scene>& scene;
 	const std::unique_ptr<class MaterialManager>& material_manager;
 	const class CameraBase& camera;
 	const class Window& window;
@@ -18,6 +18,7 @@ private:
 	const class CameraBase& _camera;
 
 	class RendererSolid* _renderer_solid;
+	class RendererLightSource* _renderer_light;
 	class RendererGui* _renderer_gui;
 
 	VulkanMultipleImageViews* _image_views;

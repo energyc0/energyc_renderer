@@ -1,5 +1,5 @@
 #pragma once
-
+#include <unordered_map>
 #include "VulkanDataObjects.h"
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
@@ -18,9 +18,10 @@ struct Vertex {
 class NamedObject {
 protected:
 	std::string _name;
-	NamedObject(const std::string& name) noexcept : _name(name) {}
-	NamedObject(std::string&& name) noexcept : _name(std::move(name)) {}
+	NamedObject(const std::string& name) noexcept;
+	NamedObject(std::string&& name) noexcept;
 
+	static std::unordered_map<std::string, uint32_t> _model_names;
 public:
 	inline std::string get_name() const noexcept { return _name; }
 };
@@ -33,18 +34,19 @@ protected:
 public:
 	virtual ~SceneObject() {}
 
-	virtual void display_gui_info() const noexcept = 0;
+	virtual void display_gui_info() noexcept = 0;
 };
 
 class PositionedObject {
 protected:
 	glm::vec3 _world_pos;
+	bool _is_transformed = false;
 
 protected:
 	PositionedObject() noexcept;
 	PositionedObject(const glm::vec3& pos) noexcept;
-
 	virtual ~PositionedObject() {}
+
 public:
 	inline glm::vec3 get_pos() const noexcept { return _world_pos; }
 	virtual void set_pos(const glm::vec3& pos) noexcept;
@@ -114,10 +116,10 @@ protected:
 	uint32_t _first_buffer_index;
 
 	std::vector<void*> _model_transform_ptr;
-	std::vector<bool> _is_copied = std::vector<bool>(Core::get_swapchain_image_count(),true);
-	bool _is_transformed = true;
+	std::vector<bool> _is_copied = std::vector<bool>(Core::get_swapchain_image_count(), true);
 
 	int32_t _material_index;
+
 protected:
 
 	void set_new_transform() noexcept;
@@ -130,9 +132,6 @@ public:
 
 	static std::vector<VkDescriptorSetLayoutBinding> get_bindings() noexcept;
 	
-	virtual void set_pos(const glm::vec3& pos) noexcept;
-	virtual void set_size(const glm::vec3& size) noexcept;
-	virtual void set_rotation(const glm::quat& rotation) noexcept;
 	virtual void set_material(const class ObjectMaterial& material) noexcept;
 
 	inline int32_t get_material_index() const noexcept { return _material_index; }
@@ -140,41 +139,48 @@ public:
 	inline void copy_to_buffer() noexcept { memcpy(_model_transform_ptr[Core::get_current_frame()], &_transform, sizeof(glm::mat4)); }
 
 	virtual inline void draw(VkCommandBuffer command_buffer) noexcept {
+		if (_is_transformed) {
+			set_new_transform();
+		}
 		if (!_is_copied[Core::get_current_frame()]) {
-			if (!_is_transformed) {
-				set_new_transform();
-			}
 			copy_to_buffer();
 		}
 		vkCmdDraw(command_buffer, _vertices_count, 1, _first_buffer_vertex, _instance_index);
 	}
 	virtual inline void draw_indexed(VkCommandBuffer command_buffer) noexcept {
+		if (_is_transformed) {
+			set_new_transform();
+		}
 		if (!_is_copied[Core::get_current_frame()]) {
-			if (!_is_transformed) {
-				set_new_transform();
-			}
 			copy_to_buffer();
 		}
 		vkCmdDrawIndexed(command_buffer, _indices_count, 1, _first_buffer_index, 0, _instance_index);
 	}
 
-	virtual void display_gui_info() const noexcept;
+	virtual void display_gui_info() noexcept;
 };
 
 struct PointLightData {
-	alignas(16) glm::vec3 pos;
+	//fourth components is raduis
+	alignas(16) glm::vec4 pos;
 	alignas(16) glm::vec3 color;
 };
 
 class PointLight : public PositionedObject, public SceneObject {
 protected:
 	glm::vec3 _color;
+	float _radius;
+	std::vector<bool> _is_copied;
+
 public:
-	PointLight(const std::string& name, const glm::vec3& position = glm::vec3(0.f), const glm::vec3& color = glm::vec3(1.f));
+	PointLight(const std::string& name, const glm::vec3& position = glm::vec3(0.f), const glm::vec3& color = glm::vec3(1.f), float radius = 1.f);
 
-	inline PointLightData get_data() const noexcept { return PointLightData{ _world_pos,_color }; }
-
+	inline PointLightData get_data() const noexcept { return PointLightData{ glm::vec4(_world_pos,_radius), _color }; }
+	//get point light uniform bindings
 	static std::vector<VkDescriptorSetLayoutBinding> get_bindings() noexcept;
 
-	virtual void display_gui_info() const noexcept;
+	inline bool is_copied() const noexcept { return _is_copied[Core::get_current_frame()]; }
+	inline void set_copied() noexcept { _is_copied[Core::get_current_frame()] = true; }
+
+	virtual void display_gui_info() noexcept;
 };

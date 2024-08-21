@@ -3,7 +3,9 @@
 #include "imgui_impl_vulkan.h"
 #include "imgui_impl_glfw.h"
 #include "Window.h"
-#include "SceneObject.h"
+#include "Scene.h"
+
+GuiInfo::GuiInfo(float delta_time_, Scene& scene_) : delta_time(delta_time_), scene(scene_) {}
 
 RendererGui::RendererGui(const Window& window, VkRenderPass render_pass, GuiInfo& gui_info) : _gui_info(gui_info){
 	create_descriptor_tools();
@@ -14,7 +16,7 @@ RendererGui::RendererGui(const Window& window, VkRenderPass render_pass, GuiInfo
 	VkSurfaceCapabilitiesKHR capabilities;
 	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(Core::get_physical_device(), Core::get_surface(), &capabilities);
 
-	ImGui_ImplGlfw_InitForVulkan(window.get_window(), false);
+	ImGui_ImplGlfw_InitForVulkan(window.get_window(), true);
 
 	ImGui_ImplVulkan_InitInfo init_info{};
 	init_info.Instance = Core::get_instance();
@@ -53,11 +55,12 @@ void RendererGui::fill_command_buffer(VkCommandBuffer command_buffer) {
 	ImGui_ImplGlfw_NewFrame();
 	ImGui::NewFrame();
 
-	bool is_open = true;
-	ImGui::Begin("Information", &is_open, 
-		ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
+	ImGui::SetNextWindowPos(ImVec2(0.f, 0.f));
+	ImGui::Begin("Information", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_MenuBar );
 	ImGui::Text("FPS: %f \nms: %f", 1000.0f/_gui_info.delta_time, _gui_info.delta_time);
-	ImGui::SetWindowPos(ImVec2(0.f, 0.f));
+
+	_gui_info.scene.display_scene_info_gui(nullptr);
+
 	ImGui::End();
 
 	ImGui::EndFrame();

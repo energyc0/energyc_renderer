@@ -32,6 +32,8 @@ add_library(renderer
 	"render/RendererBase.h"
 	"render/RendererSolid.h"
 	"render/RendererSolid.cpp"
+	"render/RendererLight.h"
+	"render/RendererLight.cpp"
 	"render/RendererGui.h"
 	"render/RendererGui.cpp"
 	"render/RenderUnitBase.h"

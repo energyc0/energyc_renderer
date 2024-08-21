@@ -2,6 +2,7 @@
 #include "RendererSolid.h"
 #include "Camera.h"
 #include "RenderManager.h"
+#include "RendererLight.h"
 #include "RendererGui.h"
 #include <array>
 
@@ -14,16 +15,23 @@ RenderUnitSolid::RenderUnitSolid(const RenderUnitSolidCreateInfo& unit_create_in
 	create_framebuffers();
 	create_descriptor_tools(unit_create_info);
 
-	RendererSolidCreateInfo create_info{
+	RendererSolidCreateInfo renderer_solid_create_info{
 		_render_pass,
 		unit_create_info.global_UBO_descriptor_set_layout,
 		unit_create_info.material_manager,
 		unit_create_info.scene
 	};
-	_renderer_solid = new RendererSolid(create_info);
-	LOG_STATUS("RenderUnitSolid - RendererSolid created.");
 
+	RendererLightSourceCreateInfo renderer_light_create_info{
+		unit_create_info.scene,
+		unit_create_info.global_UBO_descriptor_set_layout,
+		_render_pass
+	};
+
+	_renderer_solid = new RendererSolid(renderer_solid_create_info);
+	_renderer_light = new RendererLightSource(renderer_light_create_info);
 	_renderer_gui = new RendererGui(unit_create_info.window, _render_pass, unit_create_info.gui_info);
+	LOG_STATUS("Created RenderUnitSolid.");
 }
 
 RenderUnitSolid::~RenderUnitSolid() {
@@ -31,6 +39,7 @@ RenderUnitSolid::~RenderUnitSolid() {
 
 	delete _image_views;
 	delete _renderer_gui;
+	delete _renderer_light;
 	delete _renderer_solid;
 }
 
@@ -44,7 +53,7 @@ void RenderUnitSolid::create_images() {
 	view_create_info.type = VK_IMAGE_VIEW_TYPE_2D;
 
 	_image_views = new VulkanMultipleImageViews(images, Core::get_swapchain_format(), view_create_info);
-	LOG_STATUS("RenderUnitSolid - image views created.");
+	LOG_STATUS("Created RenderUnitSolid image views.");
 
 }
 
@@ -117,7 +126,7 @@ void RenderUnitSolid::create_render_pass() {
 	create_info.dependencyCount = dependency.size();
 
 	VK_ASSERT(vkCreateRenderPass(Core::get_device(), &create_info, nullptr, &_render_pass), "vkCreateRenderPass(), RenderUnitSolid - FAILED");
-	LOG_STATUS("Created RendererUnitSolid render pass.");
+	LOG_STATUS("Created RenderUnitSolid render pass.");
 }
 
 void RenderUnitSolid::create_framebuffers() {
@@ -132,7 +141,7 @@ void RenderUnitSolid::create_framebuffers() {
 	}
 
 	_framebuffer = new VulkanMultipleFramebuffers(Core::get_swapchain_width(), Core::get_swapchain_height(), attachments, _render_pass);
-	LOG_STATUS("RenderUnitSolid - framebuffers created.");
+	LOG_STATUS("Created RenderUnitSolid framebuffers.");
 }
 
 void RenderUnitSolid::create_descriptor_tools(const RenderUnitSolidCreateInfo& unit_create_info) {
@@ -150,7 +159,7 @@ void RenderUnitSolid::create_descriptor_tools(const RenderUnitSolidCreateInfo& u
 		create_info.pPushConstantRanges = &push_range;
 		create_info.pushConstantRangeCount = 1;
 		VK_ASSERT(vkCreatePipelineLayout(Core::get_device(), &create_info, nullptr, &_pipeline_layout), "vkCreatePipelineLayout(), RenderUnitSolid - FAILED.");
-		LOG_STATUS("Created RendererUnitSolid pipeline layout.");
+		LOG_STATUS("Created RenderUnitSolid pipeline layout.");
 	}
 }
 
@@ -185,6 +194,7 @@ void RenderUnitSolid::fill_command_buffer(VkCommandBuffer command_buffer, const 
 	vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipeline_layout, 0, 1, &frame_data.global_UBO, 0, 0);
 	vkCmdPushConstants(command_buffer, _pipeline_layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::vec3), &camera_pos);
 	_renderer_solid->fill_command_buffer(command_buffer);
+	_renderer_light->fill_command_buffer(command_buffer);
 	_renderer_gui->fill_command_buffer(command_buffer);
 	vkCmdEndRenderPass(command_buffer);
 }

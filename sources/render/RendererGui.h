@@ -4,6 +4,9 @@
 
 struct GuiInfo {
 	float delta_time;
+	class Scene& scene;
+
+	GuiInfo(float delta_time, Scene& scene);
 };
 
 class RendererGui : public RendererBase{

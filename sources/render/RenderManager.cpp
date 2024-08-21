@@ -1,7 +1,6 @@
 #include "RenderManager.h"
 #include "RenderUnitSolid.h"
 #include "Camera.h"
-#include <memory>
 #include <array>
 
 struct GlobalData {
@@ -53,7 +52,7 @@ void RenderManager::create_images(std::shared_ptr<VulkanImage>& depth_image, std
 	view_create_info.type = VK_IMAGE_VIEW_TYPE_2D;
 	depth_image_view = std::shared_ptr<VulkanImageView>(new VulkanImageView(*depth_image.get(), view_create_info));
 
-	LOG_STATUS("RenderUnitSolid - depth image and image view created.");
+	LOG_STATUS("Created depth image and image view.");
 }
 
 void RenderManager::create_buffers() {
@@ -82,7 +81,7 @@ void RenderManager::create_descritor_tools() {
 		create_info.poolSizeCount = pool_sizes.size();
 		create_info.maxSets = Core::get_swapchain_image_count();
 		VK_ASSERT(vkCreateDescriptorPool(Core::get_device(), &create_info, nullptr, &_descriptor_pool), "vkCreateDescriptorPool(), RenderUnitSolid - FAILED");
-		LOG_STATUS("Created RendererUnitSolid descriptor pool.");
+		LOG_STATUS("Created RenderUnitSolid descriptor pool.");
 	}
 
 	{
@@ -92,7 +91,7 @@ void RenderManager::create_descritor_tools() {
 		create_info.bindingCount = bindings.size();
 		create_info.pBindings = bindings.data();
 		VK_ASSERT(vkCreateDescriptorSetLayout(Core::get_device(), &create_info, nullptr, &_descriptor_set_layout), "vkCreateDescriptorSetLayout(), RenderUnitSolid - FAILED");
-		LOG_STATUS("Created RendererUnitSolid descriptor set layout.");
+		LOG_STATUS("Created RenderUnitSolid descriptor set layout.");
 	}
 
 	{
@@ -104,7 +103,7 @@ void RenderManager::create_descritor_tools() {
 		alloc_info.descriptorSetCount = _descriptor_sets.size();
 		alloc_info.pSetLayouts = layouts.data();
 		VK_ASSERT(vkAllocateDescriptorSets(Core::get_device(), &alloc_info, _descriptor_sets.data()), "vkAllocateDescriptorSets(), RenderUnitSolid - FAILED.");
-		LOG_STATUS("Allocated RendererUnitSolid descriptor sets.");
+		LOG_STATUS("Allocated RenderUnitSolid descriptor sets.");
 	}
 
 	{

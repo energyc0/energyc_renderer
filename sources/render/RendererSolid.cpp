@@ -13,6 +13,7 @@ const std::string fragment_shader_spv_path = std::string(RENDERER_DIRECTORY) + "
 RendererSolid::RendererSolid(const RendererSolidCreateInfo& create_info) : _scene(create_info.scene){
 	create_descriptor_tools(create_info);
 	create_pipeline(create_info);
+	LOG_STATUS("Created RendererSolid.");
 }
 
 void RendererSolid::create_descriptor_tools(const RendererSolidCreateInfo& renderer_create_info) {
@@ -38,7 +39,7 @@ void RendererSolid::create_descriptor_tools(const RendererSolidCreateInfo& rende
 
 		VkDescriptorSetLayout layouts[3] = { 
 			renderer_create_info.render_unit_set_layout,
-			_scene.get_descriptor_set_layout(),
+			_scene->get_descriptor_set_layout(),
 			renderer_create_info.material_manager->get_descriptor_set_layout()
 		};
 		VkPipelineLayoutCreateInfo create_info{};
@@ -102,7 +103,7 @@ void RendererSolid::create_pipeline(const RendererSolidCreateInfo& renderer_crea
 
 void RendererSolid::fill_command_buffer(VkCommandBuffer command_buffer) {
 	vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _graphics_pipeline);
-	_scene.draw(command_buffer, _pipeline_layout);
+	_scene->draw_solid(command_buffer, _pipeline_layout);
 }
 
 RendererSolid::~RendererSolid() {}

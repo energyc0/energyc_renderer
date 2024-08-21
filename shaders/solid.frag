@@ -2,7 +2,7 @@
 #define POINT_LIGHT_LIMIT 10
 
 struct PointLight{
-    vec3 pos;
+    vec4 pos;
     vec3 color;
 };
 
@@ -18,6 +18,7 @@ layout(set = 1, binding = 1) uniform PointLight_UBO{
 } light_ubo;
 
 layout(set = 2, binding = 0) uniform sampler2D material[4];
+
 //material
 #define ALBEDO 0
 #define METALLIC 1
@@ -32,7 +33,7 @@ layout(push_constant) uniform push_data{
 vec3 calculate_lighting(PointLight light, vec3 frag_to_camera, vec3 color, vec3 frag_normal){
     float ambient = 0.1;
 
-    vec3 frag_to_light = normalize(light.pos - frag_pos);
+    vec3 frag_to_light = normalize(light.pos.xyz - frag_pos);
     float diffuse = max(0.0, dot(frag_normal, frag_to_light));
 
     vec3 half_way_vec = normalize(frag_to_camera + frag_to_light);

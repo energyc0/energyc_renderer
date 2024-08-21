@@ -1,7 +1,11 @@
 #include "SceneObject.h"
+#include "imgui.h"
+#include "glm/gtc/type_ptr.hpp"
 #include "MaterialManager.h"
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "tiny_obj_loader.h"
+
+std::unordered_map<std::string, uint32_t> NamedObject::_model_names;
 
 std::vector<VkVertexInputAttributeDescription> Vertex::get_attribute_description() {
 	std::vector<VkVertexInputAttributeDescription> descriptions(5);
@@ -43,11 +47,26 @@ std::vector<VkVertexInputBindingDescription> Vertex::get_binding_description() {
 	return bindings;
 }
 
+NamedObject::NamedObject(const std::string& name) noexcept : _name(name) {
+	uint32_t k = _model_names[_name]++;
+	if (k > 1) {
+		_name += "." + std::to_string(k);
+	}
+}
+
+NamedObject::NamedObject(std::string&& name) noexcept : _name(std::move(name)) {
+	uint32_t k = _model_names[_name]++;
+	if (k > 1) {
+		_name += "." + std::to_string(k);
+	}
+}
+
 PositionedObject::PositionedObject() noexcept : _world_pos(0.f){}
 PositionedObject::PositionedObject(const glm::vec3& pos) noexcept  : _world_pos(pos) {}
 
 void PositionedObject::set_pos(const glm::vec3& pos) noexcept {
 	_world_pos = pos;
+	_is_transformed = true;
 }
 
 Mesh Mesh::load_mesh(const std::string& filename) noexcept {
@@ -130,10 +149,12 @@ WorldObject::WorldObject(glm::vec3 world_pos,glm::vec3 size,glm::quat rotation):
 
 void WorldObject::set_size(const glm::vec3& size) noexcept {
 	_size = size;
+	_is_transformed = true;
 }
 
 void WorldObject::set_rotation(const glm::quat& rotation) noexcept {
 	_rotation = rotation;
+	_is_transformed = true;
 }
 
 Mesh::Mesh(std::string&& name) noexcept :
@@ -179,21 +200,6 @@ Mesh::Mesh(const char* filename,
 
 void Mesh::set_material(const ObjectMaterial & material) noexcept { _material_index = material.get_index(); }
 
-void Model::set_size(const glm::vec3& size) noexcept {
-	_size = size;
-	_is_transformed = false;
-}
-
-void Model::set_rotation(const glm::quat& rotation) noexcept {
-	_rotation = rotation;
-	_is_transformed = false;
-}
-
-void Model::set_pos(const glm::vec3& pos) noexcept {
-	_world_pos = pos;
-	_is_transformed = false;
-}
-
 void Model::set_new_transform() noexcept {
 	_transform = glm::mat4_cast(_rotation) *
 		glm::translate(glm::mat4(1.f), _world_pos) *
@@ -226,8 +232,16 @@ Model::Model(const Mesh* mesh,
 	}
 }
 
-void Model::display_gui_info() const noexcept {
-
+void Model::display_gui_info() noexcept {
+	ImGui::BeginChild(_name.c_str(),ImVec2(0.f,0.f),
+		ImGuiChildFlags_AutoResizeX | ImGuiChildFlags_AutoResizeY | ImGuiChildFlags_AlwaysAutoResize| ImGuiChildFlags_AlwaysUseWindowPadding);
+	ImGui::Text(_name.c_str());
+	if (ImGui::SliderFloat3("Position: ", glm::value_ptr(_world_pos), -10.f, 10.f, "%.6f", ImGuiSliderFlags_AlwaysClamp) ||
+		ImGui::SliderFloat3("Rotation: ", glm::value_ptr(_rotation), -1.f, 1.f, "%.6f", ImGuiSliderFlags_AlwaysClamp) ||
+		ImGui::SliderFloat3("Size: ", glm::value_ptr(_size), 0.f, 10.f, "%.6f", ImGuiSliderFlags_AlwaysClamp)) {
+		_is_transformed = true;
+	}
+	ImGui::EndChild();
 }
 
 std::vector<VkDescriptorSetLayoutBinding> Model::get_bindings() noexcept {
@@ -241,8 +255,8 @@ std::vector<VkDescriptorSetLayoutBinding> Model::get_bindings() noexcept {
 	return bindings;
 }
 
-PointLight::PointLight(const std::string& name, const glm::vec3& position, const glm::vec3& color) : 
-	SceneObject(name), PositionedObject(position), _color(color) {}
+PointLight::PointLight(const std::string& name, const glm::vec3& position, const glm::vec3& color, float radius) :
+	SceneObject(name), PositionedObject(position), _color(color), _radius(radius), _is_copied(Core::get_swapchain_image_count(), false) {}
 
 std::vector<VkDescriptorSetLayoutBinding> PointLight::get_bindings() noexcept {
 	std::vector<VkDescriptorSetLayoutBinding> bindings(1);
@@ -250,11 +264,18 @@ std::vector<VkDescriptorSetLayoutBinding> PointLight::get_bindings() noexcept {
 	bindings[0].binding = 1;
 	bindings[0].descriptorCount = 1;
 	bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-	bindings[0].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+	bindings[0].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT;
 
 	return bindings;
 }
 
-void PointLight::display_gui_info() const noexcept {
 
+void PointLight::display_gui_info() noexcept {
+	ImGui::BeginChild(_name.c_str(), ImVec2(0.f, 0.f), ImGuiChildFlags_AutoResizeX | ImGuiChildFlags_AutoResizeY | ImGuiChildFlags_AlwaysAutoResize);
+	ImGui::Text(_name.c_str());
+	if (ImGui::SliderFloat3("Position: ", glm::value_ptr(_world_pos), -10.f, 10.f, "%.6f", ImGuiSliderFlags_AlwaysClamp) ||
+		ImGui::SliderFloat("Radius: ", &_radius, 0.f, 5.f, "%.6f", ImGuiSliderFlags_AlwaysClamp)) {
+		_is_copied.assign(_is_copied.size(), false);
+	}
+	ImGui::EndChild();
 }

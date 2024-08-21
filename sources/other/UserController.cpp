@@ -61,25 +61,27 @@ FreeCameraController::FreeCameraController(const Window& window, FreeCamera& cam
 }
 
 void FreeCameraController::process_input(float delta_time) {
-	glm::vec3 velocity = glm::vec3(0.f);
-	if (_is_W_pressed) {
-		velocity += _camera.get_forward_vector();
+	if (_is_middle_button_pressed) {
+		glm::vec3 velocity = glm::vec3(0.f);
+		if (_is_W_pressed) {
+			velocity += _camera.get_forward_vector();
+		}
+		if (_is_S_pressed) {
+			velocity -= _camera.get_forward_vector();
+		}
+		if (_is_D_pressed) {
+			velocity += _camera.get_right_vector();
+		}
+		if (_is_A_pressed) {
+			velocity -= _camera.get_right_vector();
+		}
+		if (_is_space_pressed) {
+			velocity += FreeCamera::camera_up;
+		}
+		if (_is_ctrl_pressed) {
+			velocity -= FreeCamera::camera_up;
+		}
+		_camera.add_velocity(velocity);
 	}
-	if (_is_S_pressed) {
-		velocity -= _camera.get_forward_vector();
-	}
-	if (_is_D_pressed) {
-		velocity += _camera.get_right_vector();
-	}
-	if (_is_A_pressed) {
-		velocity -= _camera.get_right_vector();
-	}
-	if (_is_space_pressed) {
-		velocity += FreeCamera::camera_up;
-	}
-	if (_is_ctrl_pressed) {
-		velocity -= FreeCamera::camera_up;
-	}
-	_camera.add_velocity(velocity);
 	_camera.process_position(delta_time);
 }

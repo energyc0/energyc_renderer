@@ -1,4 +1,5 @@
 #include "Scene.h"
+#include "imgui.h"
 #include "CommandManager.h"
 #include "MaterialManager.h"
 
@@ -8,18 +9,45 @@ constexpr uint32_t GROUP_MODEL_LIMIT = 30;
 constexpr uint32_t POINT_LIGHT_LIMIT = 10;
 
 Scene::Scene(const std::unique_ptr<MaterialManager>& material_manager) noexcept :
-	_scene_lights_buffer(VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-		sizeof(PointLight) * POINT_LIGHT_LIMIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT),
 	_material_manager(material_manager) {
-
+	create_buffers();
 	create_descriptor_tools();
 	LOG_STATUS("Created new scene.");
 }
-
-void Scene::draw(VkCommandBuffer command_buffer, VkPipelineLayout layout) const noexcept{
+void Scene::create_buffers() {
+	uint32_t image_count = Core::get_swapchain_image_count();
+	_scene_lights_buffers.reserve(image_count);
+	for (uint32_t i = 0; i < image_count; i++) {
+		_scene_lights_buffers.push_back(new VulkanBuffer(VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+			sizeof(PointLightData) * POINT_LIGHT_LIMIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT));
+	}
+}
+void Scene::draw_solid(VkCommandBuffer command_buffer, VkPipelineLayout layout) const noexcept{
 	for (auto& group : _object_groups) {
 		group->draw(command_buffer,layout, _material_manager);
 	}
+}
+
+void Scene::draw_light(VkCommandBuffer command_buffer, VkPipelineLayout layout) {
+	vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+		layout, 1, 1, &_point_light_descriptor_sets[Core::get_current_frame()], 0, 0);
+	for (uint32_t i = 0; i < _point_lights.size(); i++) {
+		if (!_point_lights[i]->is_copied()) {
+			_point_lights[i]->set_copied();
+			copy_light_new_info(_point_lights[i], i);
+		}
+	}
+	vkCmdDraw(command_buffer, _point_lights.size() * 6, _point_lights.size(), 0, 0);
+}
+
+void Scene::display_scene_info_gui(bool* is_window_opened) const noexcept {
+	ImGui::BeginChild("Scene info: ", ImVec2(0.f,0.f),
+		ImGuiChildFlags_AutoResizeX | ImGuiChildFlags_AutoResizeY| ImGuiChildFlags_AlwaysAutoResize,
+		ImGuiWindowFlags_NoResize);
+	for (SceneObject* object : _objects) {
+		object->display_gui_info();
+	}
+	ImGui::EndChild();
 }
 
 void Scene::create_descriptor_tools() {
@@ -35,57 +63,80 @@ void Scene::create_descriptor_tools() {
 	VK_ASSERT(vkCreateDescriptorSetLayout(Core::get_device(), &create_info, nullptr, &_descriptor_set_layout), "vkCreateDescriptorSetLayout(), RendererSolid - FAILED");
 }
 
-bool Scene::add_mesh(Mesh* mesh) {
-	bool has_added = false;
-	for (auto& group : _object_groups) {
-		if (group->try_add_mesh(mesh)) {
-			has_added = true;
-			break;
-		}
-	}
+void Scene::copy_light_new_info(const std::shared_ptr<PointLight>& light, uint32_t idx) noexcept {
+	VulkanBuffer staging_buffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, sizeof(PointLightData), VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
-	if (!has_added) {
-		_object_groups.push_back(new ModelGroup(mesh, _descriptor_set_layout, _scene_lights_buffer));
-	}
-
-	return true;
-}
-
-bool Scene::add_point_light(PointLight* light) {
-	if (_point_lights.size() >= POINT_LIGHT_LIMIT) {
-		LOG_STATUS("Point light limit exceded. Aborted adding the light.");
-		return false;
-	}
-
-	VulkanBuffer staging_buffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, sizeof(PointLight), VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-
-	auto data = light->get_data();
+	PointLightData data = light->get_data();
 	void* ptr = staging_buffer.map_memory(0, VK_WHOLE_SIZE);
 	memcpy(ptr, &data, staging_buffer.get_size());
 	staging_buffer.unmap_memory();
 
 	auto cmd = CommandManager::begin_single_command_buffer();
 
-	CommandManager::copy_buffers(cmd, staging_buffer, _scene_lights_buffer,
-		0, _point_lights.size() * sizeof(PointLight), staging_buffer.get_size());
+	CommandManager::copy_buffers(cmd, staging_buffer, *_scene_lights_buffers[Core::get_current_frame()],
+		0, idx * sizeof(PointLight), staging_buffer.get_size());
 
 	CommandManager::end_single_command_buffer(cmd);
-	LOG_STATUS("Added point light.");
+}
 
+bool Scene::add_mesh(const std::shared_ptr<Mesh>& mesh) {
+	bool has_added = false;
+	for (auto& group : _object_groups) {
+		if (group->try_add_mesh(mesh)) {
+			has_added = true;
+			_objects.push_back(group->get_last_pushed_model());
+			break;
+		}
+	}
+
+	if (!has_added) {
+		_object_groups.push_back(new ModelGroup(mesh, _descriptor_set_layout, _scene_lights_buffers));
+		_objects.push_back(_object_groups.back()->get_last_pushed_model());
+		if (_point_light_descriptor_sets.empty()) {
+			_point_light_descriptor_sets = _object_groups.back()->get_descriptor_sets();
+		}
+	}
+	return true;
+}
+
+bool Scene::add_point_light(const std::shared_ptr<PointLight>& light) {
+	if (_point_lights.size() >= POINT_LIGHT_LIMIT) {
+		LOG_STATUS("Point light limit exceded. Aborted adding the light.");
+		return false;
+	}
+	VulkanBuffer staging_buffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, sizeof(PointLightData), VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+	PointLightData data = light->get_data();
+	void* ptr = staging_buffer.map_memory(0, VK_WHOLE_SIZE);
+	memcpy(ptr, &data, staging_buffer.get_size());
+	staging_buffer.unmap_memory();
+
+	auto cmd = CommandManager::begin_single_command_buffer();
+
+	for (auto& buffer : _scene_lights_buffers) {
+		CommandManager::copy_buffers(cmd, staging_buffer, *buffer,
+			0, _point_lights.size() * sizeof(PointLight), staging_buffer.get_size());
+	}
+
+	CommandManager::end_single_command_buffer(cmd);
+
+	_point_lights.push_back(light);
+	_objects.push_back(light.get());
+	LOG_STATUS("Added point light: ", light->get_name());
 	return true;
 }
 
 Scene::~Scene() {
 	vkDestroyDescriptorSetLayout(Core::get_device(), _descriptor_set_layout, nullptr);
-	for (SceneObject* i : _objects) {
-		delete i;
+	for (VulkanBuffer* buffer : _scene_lights_buffers) {
+		delete buffer;
 	}
 	for (ModelGroup* group : _object_groups) {
 		delete group;
 	}
 }
 
-void Scene::ModelGroup::create_descriptor_tools(VkDescriptorSetLayout layout, const VulkanBuffer& scene_lights_buffer) {
+void Scene::ModelGroup::create_descriptor_tools(VkDescriptorSetLayout layout, const std::vector<VulkanBuffer*>& scene_lights_buffers) {
 	uint32_t image_count = Core::get_swapchain_image_count();
 	VkDescriptorPoolSize pool_sizes[2];
 	pool_sizes[0].descriptorCount = image_count;
@@ -125,7 +176,6 @@ void Scene::ModelGroup::create_descriptor_tools(VkDescriptorSetLayout layout, co
 	write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 	write.descriptorCount = 1;
 	write.dstArrayElement = 0;
-	VkDescriptorBufferInfo point_lights_buffer_info = scene_lights_buffer.get_info(0, VK_WHOLE_SIZE);
 	for (uint32_t i = 0; i < image_count; i++) {
 		write.dstSet = _descriptor_sets[i];
 
@@ -135,6 +185,7 @@ void Scene::ModelGroup::create_descriptor_tools(VkDescriptorSetLayout layout, co
 		write.pBufferInfo = &storage_buffer_info;
 		write_descriptors.push_back(write);
 
+		VkDescriptorBufferInfo point_lights_buffer_info = scene_lights_buffers[i]->get_info(0, VK_WHOLE_SIZE);
 		write.dstBinding = 1;
 		write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 		write.pBufferInfo = &point_lights_buffer_info;
@@ -143,7 +194,7 @@ void Scene::ModelGroup::create_descriptor_tools(VkDescriptorSetLayout layout, co
 	vkUpdateDescriptorSets(Core::get_device(), write_descriptors.size(), write_descriptors.data(), 0, 0);
 }
 
-void Scene::ModelGroup::create_buffers(Mesh* object) {
+void Scene::ModelGroup::create_buffers(const std::shared_ptr<Mesh>& object) {
 	const VkDeviceSize vertex_size = object->get_vertices_count() * sizeof(Vertex);
 	const VkDeviceSize index_size = object->get_indices_count() * sizeof(uint32_t);
 
@@ -161,7 +212,7 @@ void Scene::ModelGroup::create_buffers(Mesh* object) {
 	}
 }
 
-void Scene::ModelGroup::push_model(const Mesh* mesh) {
+void Scene::ModelGroup::push_model(const std::shared_ptr<Mesh>& mesh) {
 	const VkDeviceSize vertex_size = mesh->get_vertices_count() * sizeof(Vertex);
 	const VkDeviceSize index_size = mesh->get_indices_count() * sizeof(uint32_t);
 
@@ -191,28 +242,33 @@ void Scene::ModelGroup::push_model(const Mesh* mesh) {
 		ptrs.push_back((void*)ptr);
 		ptr += sizeof(glm::mat4);
 	}
-	_models.push_back(new Model(mesh, _models.size(), _total_vertices, _total_indices, ptrs));
+	_last_pushed_model = new Model(mesh.get(), _models.size(), _total_vertices, _total_indices, ptrs);
+	_models.push_back(_last_pushed_model);
 
 	_total_vertices += mesh->get_vertices_count();
 	_total_indices += mesh->get_indices_count();
 	_empty_indices -= mesh->get_indices_count() * sizeof(uint32_t);
 	_empty_vertices -= mesh->get_vertices_count() * sizeof(Vertex);
 	_storage_buffer_space -= _descriptor_sets.size();
+
+	LOG_STATUS("Added model: ", mesh->get_name());
 }
 
-Scene::ModelGroup::ModelGroup(Mesh* object, VkDescriptorSetLayout layout, const VulkanBuffer& scene_lights_buffer) noexcept :
+Scene::ModelGroup::ModelGroup(const std::shared_ptr<Mesh>& object, VkDescriptorSetLayout layout, const std::vector<VulkanBuffer*>& scene_lights_buffers) noexcept :
 	_total_indices(0),
 	_total_vertices(0),
 	_storage_buffer_space(GROUP_MODEL_LIMIT) {
-	create_descriptor_tools(layout, scene_lights_buffer);
+
+	create_descriptor_tools(layout, scene_lights_buffers);
 	create_buffers(object);
 	_empty_indices = _index_buffer->get_size();
 	_empty_vertices = _vertex_buffer->get_size();
 	push_model(object);
+
 	LOG_STATUS("Created new ModelGroup.");
 }
 
-bool Scene::ModelGroup::try_add_mesh(const Mesh* mesh) {
+bool Scene::ModelGroup::try_add_mesh(const std::shared_ptr<Mesh>& mesh) {
 	if (mesh->get_indices_count() * sizeof(uint32_t) > _empty_indices ||
 		mesh->get_vertices_count() * sizeof(Vertex) > _empty_vertices || 
 		_storage_buffer_space < _descriptor_sets.size()) {

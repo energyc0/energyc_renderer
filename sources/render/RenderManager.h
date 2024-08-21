@@ -7,7 +7,7 @@ public:
 };
 
 struct RenderManagerCreateInfo {
-	const class Scene& scene;
+	const std::shared_ptr<class Scene>& scene;
 	const class CameraBase& camera;
 	const class Window& window;
 	struct GuiInfo& gui_info;
@@ -35,7 +35,7 @@ public:
 
 	void update_descriptor_sets();
 	void render(VkCommandBuffer command_buffer);
-
+	//global UBO
 	static std::vector<VkDescriptorSetLayoutBinding> get_bindings() noexcept;
 
 	~RenderManager();

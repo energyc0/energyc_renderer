@@ -26,38 +26,46 @@ private:
 		VkDeviceSize _empty_indices;
 		std::vector<char*> _buffer_data_ptrs;
 
+		Model* _last_pushed_model = nullptr;
 	private:
-		void create_descriptor_tools(VkDescriptorSetLayout layout, const VulkanBuffer& scene_lights_buffer);
-		void create_buffers(Mesh* object);
-		void push_model(const Mesh* mesh);
+		void create_descriptor_tools(VkDescriptorSetLayout layout, const std::vector<VulkanBuffer*>& scene_lights_buffers);
+		void create_buffers(const std::shared_ptr<Mesh>& object);
+		void push_model(const std::shared_ptr<Mesh>& mesh);
 
 	public:
-		ModelGroup(Mesh* object, VkDescriptorSetLayout layout, const VulkanBuffer& scene_lights_buffer) noexcept;
+		ModelGroup(const std::shared_ptr<Mesh>& object, VkDescriptorSetLayout layout, const std::vector<VulkanBuffer*>& scene_lights_buffers) noexcept;
 
-		bool try_add_mesh(const Mesh* object);
+		bool try_add_mesh(const std::shared_ptr<Mesh>& object);
 		void draw(VkCommandBuffer command_buffer, VkPipelineLayout layout, const std::unique_ptr<class MaterialManager>& material_manager);
 
+		inline Model* get_last_pushed_model()const noexcept { return _last_pushed_model; }
+		inline std::vector<VkDescriptorSet> get_descriptor_sets() { return _descriptor_sets; }
 		~ModelGroup();
 	};
 
 
-	VulkanBuffer _scene_lights_buffer;
-	std::vector<PointLight> _point_lights;
+	std::vector<VulkanBuffer*> _scene_lights_buffers;
+	std::vector<std::shared_ptr<PointLight>> _point_lights;
+	std::vector<VkDescriptorSet> _point_light_descriptor_sets;
 	std::vector<ModelGroup*> _object_groups;
 
 private:
+	void create_buffers();
 	void create_descriptor_tools();
 
+	void copy_light_new_info(const std::shared_ptr<PointLight>& light, uint32_t idx) noexcept;
 public:
 	Scene(const std::unique_ptr<class MaterialManager>& _material_manager) noexcept;
 
 	inline VkDescriptorSetLayout get_descriptor_set_layout()const noexcept { return _descriptor_set_layout; }
 
-	bool add_mesh(Mesh* mesh);
+	bool add_mesh(const std::shared_ptr<Mesh>& mesh);
+	bool add_point_light(const std::shared_ptr<PointLight>& light);
 
-	bool add_point_light(PointLight* light);
+	void display_scene_info_gui(bool* is_window_opened) const noexcept;
 
-	void draw(VkCommandBuffer command_buffer, VkPipelineLayout layout) const noexcept;
+	void draw_solid(VkCommandBuffer command_buffer, VkPipelineLayout layout) const noexcept;
+	void draw_light(VkCommandBuffer command_buffer, VkPipelineLayout layout);
 
 	~Scene();
 };

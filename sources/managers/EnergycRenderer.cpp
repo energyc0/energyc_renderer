@@ -10,7 +10,10 @@ EnergycRenderer::EnergycRenderer(int width, int height, const char* application_
 	_core(_window.get_window(), application_name, engine_name),
 	_camera(glm::vec3(0.0f, 0.f, -10.f)),
 	_controller(_window, _camera),
-	_material_manager(new MaterialManager()){
+	_material_manager(new MaterialManager()),
+	_current_scene(std::shared_ptr<Scene>(new Scene(_material_manager))),
+	_gui_info(0.f,*_current_scene),
+	_scenes{ _current_scene } {
 
 	ObjectMaterial rusted_iron = _material_manager->create_new_material(
 		"Rusted iron",
@@ -19,11 +22,11 @@ EnergycRenderer::EnergycRenderer(int width, int height, const char* application_
 		(std::string(RENDERER_DIRECTORY) + "/assets/rustediron2_roughness.png").c_str(),
 		("F:/3D/Textures/brickwall_normal.jpg"));
 
-	Mesh* sphere1 = new Mesh(sphere_filename.c_str());
-	Mesh* sphere2 = new Mesh(*sphere1);
-	Mesh* cube = new Mesh(cube_filename.c_str());
-	PointLight* light1 = new PointLight("My point light");
-
+	std::shared_ptr<Mesh> sphere1(new Mesh(sphere_filename.c_str()));
+	std::shared_ptr<Mesh> sphere2(new Mesh(*sphere1));
+	std::shared_ptr<Mesh> cube(new Mesh(cube_filename.c_str()));
+	std::shared_ptr<PointLight> light1(new PointLight("My point light"));
+	
 	sphere1->set_pos(glm::vec3(10.f));
 	sphere1->set_size(glm::vec3(3.f));
 	sphere1->set_material(rusted_iron);
@@ -35,22 +38,20 @@ EnergycRenderer::EnergycRenderer(int width, int height, const char* application_
 	cube->set_pos(glm::vec3(1.f,-2,1.f));
 	cube->set_material(rusted_iron);
 
-	Scene* scene = new Scene(_material_manager);
-	scene->add_mesh(sphere1);
-	scene->add_mesh(sphere2);
-	scene->add_point_light(light1);
-	scene->add_mesh(cube);
-
-	_scenes.push_back(scene);
+	_current_scene->add_mesh(sphere1);
+	_current_scene->add_mesh(sphere2);
+	_current_scene->add_point_light(light1);
+	_current_scene->add_mesh(cube);
 
 	RenderManagerCreateInfo render_manager_create_info{
-		*_scenes[0],
+		_current_scene,
 		_controller.get_camera(),
 		_window,
 		_gui_info,
 		_material_manager
 	};
-	_render_manager = new RenderManager(render_manager_create_info);
+	_render_manager = std::unique_ptr<RenderManager>(new RenderManager(render_manager_create_info));
+
 	LOG_STATUS("Application start.");
 }
 
@@ -104,8 +105,4 @@ void EnergycRenderer::draw_frame(float delta_time) {
 EnergycRenderer::~EnergycRenderer() {
 	LOG_STATUS("Application shutdown.");
 	vkDeviceWaitIdle(Core::get_device());
-	for (auto scene : _scenes) {
-		delete scene;
-	}
-	delete _render_manager;
 }

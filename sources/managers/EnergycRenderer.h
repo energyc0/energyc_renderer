@@ -15,13 +15,14 @@ private:
 
 	CommandManager _command_manager;
 	SyncManager _sync_manager;
-	RenderManager* _render_manager;
+	std::unique_ptr<RenderManager> _render_manager;
 
 	FreeCamera _camera;
 	FreeCameraController _controller;
 
 	std::unique_ptr<class MaterialManager> _material_manager;
-	std::vector<class Scene*> _scenes;
+	std::shared_ptr<class Scene> _current_scene;
+	std::vector<std::shared_ptr<class Scene>> _scenes;
 
 	Timer<> _timer;
 	GuiInfo _gui_info;

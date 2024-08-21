@@ -17,15 +17,16 @@ EnergycRenderer::EnergycRenderer(int width, int height, const char* application_
 
 	ObjectMaterial rusted_iron = _material_manager->create_new_material(
 		"Rusted iron",
-		("F:/3D/Textures/brickwall_diffuse.jpg"),
+		(std::string(RENDERER_DIRECTORY) + "/assets/bricks.jpg").c_str(),
 		(std::string(RENDERER_DIRECTORY) + "/assets/rustediron2_metallic.png").c_str(),
 		(std::string(RENDERER_DIRECTORY) + "/assets/rustediron2_roughness.png").c_str(),
-		("F:/3D/Textures/brickwall_normal.jpg"));
+		(std::string(RENDERER_DIRECTORY) + "/assets/bricks_norm.jpg").c_str());
 
 	std::shared_ptr<Mesh> sphere1(new Mesh(sphere_filename.c_str()));
 	std::shared_ptr<Mesh> sphere2(new Mesh(*sphere1));
 	std::shared_ptr<Mesh> cube(new Mesh(cube_filename.c_str()));
-	std::shared_ptr<PointLight> light1(new PointLight("My point light"));
+	std::shared_ptr<PointLight> light1(
+		new PointLight("My point light", glm::vec3(0.8,1.3,1.2), glm::vec3(1.f), 0.1));
 	
 	sphere1->set_pos(glm::vec3(10.f));
 	sphere1->set_size(glm::vec3(3.f));
@@ -36,6 +37,7 @@ EnergycRenderer::EnergycRenderer(int width, int height, const char* application_
 	sphere2->set_material(rusted_iron);
 
 	cube->set_pos(glm::vec3(1.f,-2,1.f));
+	cube->set_size(glm::vec3(3.f));
 	cube->set_material(rusted_iron);
 
 	_current_scene->add_mesh(sphere1);

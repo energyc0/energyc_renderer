@@ -115,8 +115,9 @@ Mesh Mesh::load_mesh(const std::string& filename) noexcept {
 				}
 
 				if (!attrib.texcoords.empty()) {
+					//vulkan -y coordinate
 					vertex.uv.x = attrib.texcoords[2 * index.texcoord_index + 0];
-					vertex.uv.y = attrib.texcoords[2 * index.texcoord_index + 1];
+					vertex.uv.y = 1.0 - attrib.texcoords[2 * index.texcoord_index + 1];
 				}
 				mesh._vertices.emplace_back(std::move(vertex));
 				mesh._indices.push_back(current_index + v);
@@ -132,11 +133,11 @@ Mesh Mesh::load_mesh(const std::string& filename) noexcept {
 			glm::vec3 edge1 = p1.pos - p2.pos;
 			glm::vec3 edge2 = p3.pos - p2.pos;
 
-			glm::mat2x2 uv_mat_inverse = glm::inverse(glm::mat2x2(d_uv1,d_uv2));
-			glm::mat2x3 edge_mat = glm::mat2x3(edge1,edge2);
-			glm::mat2x3 TB_mat = edge_mat * uv_mat_inverse;
+			glm::mat2x2 uv_mat_inverse = glm::inverse(glm::mat2x2(d_uv1.x, d_uv2.x, d_uv1.y, d_uv2.y));
+			glm::mat3x2 edge_mat = glm::mat3x2(edge1.x, edge2.x, edge1.y, edge2.y, edge1.z, edge2.z);
+			glm::mat3x2 TB_mat = uv_mat_inverse* edge_mat;
 
-			p3.tangent = p2.tangent = p1.tangent = TB_mat[0];
+			p3.tangent = p2.tangent = p1.tangent = glm::vec3(TB_mat[0].x, TB_mat[1].x, TB_mat[1].x);
 			current_index += 3;
 		}
 	}

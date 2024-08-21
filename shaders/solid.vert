@@ -35,8 +35,8 @@ void main(){
     frag_pos = vec3(transform.model[gl_InstanceIndex] * vec4(pos,1.0));
     frag_uv = uv;
 
-    vec3 N = normalize(model_inverse * normal);
-    vec3 T = normalize(model_inverse * tangent);
+    vec3 N = normalize(mat3(transform.model[gl_InstanceIndex]) * normal);
+    vec3 T = normalize(mat3(transform.model[gl_InstanceIndex]) * tangent);
     vec3 B = cross(T,N);
     TBN = mat3(T,B,N);
     

@@ -12,34 +12,34 @@ EnergycRenderer::EnergycRenderer(int width, int height, const char* application_
 	_controller(_window, _camera),
 	_material_manager(new MaterialManager()){
 
-	auto rusted_iron = _material_manager->create_new_material(
+	ObjectMaterial rusted_iron = _material_manager->create_new_material(
 		"Rusted iron",
-		(std::string(RENDERER_DIRECTORY) + "/assets/rustediron2_basecolor.png").c_str(),
+		("F:/3D/Textures/brickwall_diffuse.jpg"),
 		(std::string(RENDERER_DIRECTORY) + "/assets/rustediron2_metallic.png").c_str(),
 		(std::string(RENDERER_DIRECTORY) + "/assets/rustediron2_roughness.png").c_str(),
-		(std::string(RENDERER_DIRECTORY) + "/assets/rustediron2_normal.png").c_str());
+		("F:/3D/Textures/brickwall_normal.jpg"));
 
 	Mesh* sphere1 = new Mesh(sphere_filename.c_str());
 	Mesh* sphere2 = new Mesh(*sphere1);
 	Mesh* cube = new Mesh(cube_filename.c_str());
-	PointLight* light1 = new PointLight();
+	PointLight* light1 = new PointLight("My point light");
 
 	sphere1->set_pos(glm::vec3(10.f));
 	sphere1->set_size(glm::vec3(3.f));
-	sphere1->set_material_index(rusted_iron.get_index());
+	sphere1->set_material(rusted_iron);
 
 	sphere2->set_pos(glm::vec3(- 10.f, 0.f, 0.f));
 	sphere2->set_size(glm::vec3(1.f));
-	sphere2->set_material_index(rusted_iron.get_index());
+	sphere2->set_material(rusted_iron);
 
-	cube->set_pos(glm::vec3(-10.f));
-	cube->set_material_index(rusted_iron.get_index());
+	cube->set_pos(glm::vec3(1.f,-2,1.f));
+	cube->set_material(rusted_iron);
 
 	Scene* scene = new Scene(_material_manager);
-	scene->add_object(sphere1);
-	scene->add_object(sphere2);
-	scene->add_object(light1);
-	scene->add_object(cube);
+	scene->add_mesh(sphere1);
+	scene->add_mesh(sphere2);
+	scene->add_point_light(light1);
+	scene->add_mesh(cube);
 
 	_scenes.push_back(scene);
 

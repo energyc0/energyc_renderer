@@ -8,8 +8,8 @@ struct PointLight{
 
 layout(location = 0) in vec3 frag_pos;
 layout(location = 1) in vec3 frag_color;
-layout(location = 2) in vec3 frag_normal;
-layout(location = 3) in vec2 frag_uv;
+layout(location = 2) in vec2 frag_uv;
+layout(location = 3) in mat3 TBN;
 
 layout(location = 0) out vec4 out_color;
 
@@ -29,7 +29,7 @@ layout(push_constant) uniform push_data{
     vec3 camera_pos;
 } push;
 
-vec3 calculate_lighting(PointLight light, vec3 frag_to_camera, vec3 color){
+vec3 calculate_lighting(PointLight light, vec3 frag_to_camera, vec3 color, vec3 frag_normal){
     float ambient = 0.1;
 
     vec3 frag_to_light = normalize(light.pos - frag_pos);
@@ -44,6 +44,7 @@ vec3 calculate_lighting(PointLight light, vec3 frag_to_camera, vec3 color){
 void main(){
     vec3 color = texture(material[ALBEDO], frag_uv).rgb;
     vec3 frag_to_camera = normalize(push.camera_pos - frag_pos);
-    color = calculate_lighting(light_ubo.lights[0], frag_to_camera, color);
+    vec3 norm = normalize(TBN * (texture(material[NORMAL],frag_uv).xyz * 2.0 - 1.0));
+    color = calculate_lighting(light_ubo.lights[0], frag_to_camera, color, norm);
     out_color = vec4(color, 1.0);
 }

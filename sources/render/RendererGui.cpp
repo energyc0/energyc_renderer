@@ -3,6 +3,7 @@
 #include "imgui_impl_vulkan.h"
 #include "imgui_impl_glfw.h"
 #include "Window.h"
+#include "SceneObject.h"
 
 RendererGui::RendererGui(const Window& window, VkRenderPass render_pass, GuiInfo& gui_info) : _gui_info(gui_info){
 	create_descriptor_tools();

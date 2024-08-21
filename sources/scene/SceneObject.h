@@ -9,20 +9,34 @@ struct Vertex {
 	alignas(16) glm::vec3 color;
 	alignas(16) glm::vec3 normal;
 	alignas(16) glm::vec2 uv;
+	alignas(16) glm::vec3 tangent;
 
 	static std::vector<VkVertexInputAttributeDescription> get_attribute_description();
 	static std::vector<VkVertexInputBindingDescription> get_binding_description();
 };
 
-class SceneObject {
+class NamedObject {
 protected:
-	SceneObject() noexcept {}
+	std::string _name;
+	NamedObject(const std::string& name) noexcept : _name(name) {}
+	NamedObject(std::string&& name) noexcept : _name(std::move(name)) {}
+
+public:
+	inline std::string get_name() const noexcept { return _name; }
+};
+
+class SceneObject : public NamedObject{
+protected:
+	SceneObject(const std::string& name) noexcept : NamedObject(name){}
+	SceneObject(std::string&& name) noexcept : NamedObject(std::move(name)) {}
+
 public:
 	virtual ~SceneObject() {}
 
+	virtual void display_gui_info() const noexcept = 0;
 };
 
-class PositionedObject : public SceneObject {
+class PositionedObject {
 protected:
 	glm::vec3 _world_pos;
 
@@ -53,7 +67,7 @@ public:
 	inline glm::quat get_rotation()const noexcept { return _rotation; }
 };
 
-class Mesh : public WorldObject{
+class Mesh : public WorldObject, public NamedObject {
 private:
 	std::vector<Vertex> _vertices;
 	std::vector<uint32_t> _indices;
@@ -61,17 +75,17 @@ private:
 	int32_t _material_index;
 
 	static Mesh load_mesh(const std::string& filename) noexcept;
-	Mesh() noexcept;
+	Mesh(std::string&& name) noexcept;
 public:
-	Mesh(const Mesh& mesh);
-	Mesh(Mesh&& mesh);
+	Mesh(const Mesh& mesh) noexcept;
+	Mesh(Mesh&& mesh) noexcept;
 
-	Mesh(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices,
+	Mesh(const std::string& name,const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices,
 		glm::vec3 world_pos = glm::vec3(0.f),
 		glm::vec3 size = glm::vec3(1.f),
 		glm::quat rotation = glm::vec3(0.f),
 		int32_t material_index = -1) noexcept;
-	Mesh(std::vector<Vertex>&& vertices, std::vector<uint32_t>&& indices,
+	Mesh(std::string&& name, std::vector<Vertex>&& vertices, std::vector<uint32_t>&& indices,
 		glm::vec3 world_pos = glm::vec3(0.f),
 		glm::vec3 size = glm::vec3(1.f),
 		glm::quat rotation = glm::vec3(0.f),
@@ -81,7 +95,7 @@ public:
 		glm::vec3 size = glm::vec3(1.f),
 		glm::quat rotation = glm::vec3(0.f)) noexcept;
 
-	inline void set_material_index(int32_t idx) noexcept { _material_index = idx; }
+	void set_material(const class ObjectMaterial& material) noexcept;
 	inline int32_t get_material_index() const noexcept { return _material_index; }
 	inline uint32_t get_vertices_count() const noexcept { return _vertices.size(); }
 	inline uint32_t get_indices_count() const noexcept { return _indices.size(); }
@@ -89,7 +103,7 @@ public:
 	inline const uint32_t* get_index_data() const noexcept { return _indices.data(); }
 };
 
-class Model : public WorldObject {
+class Model : public WorldObject, public SceneObject {
 protected:
 	glm::mat4 _transform;
 
@@ -143,6 +157,8 @@ public:
 		}
 		vkCmdDrawIndexed(command_buffer, _indices_count, 1, _first_buffer_index, 0, _instance_index);
 	}
+
+	virtual void display_gui_info() const noexcept;
 };
 
 struct PointLightData {
@@ -150,13 +166,15 @@ struct PointLightData {
 	alignas(16) glm::vec3 color;
 };
 
-class PointLight : public PositionedObject {
+class PointLight : public PositionedObject, public SceneObject {
 protected:
 	glm::vec3 _color;
 public:
-	PointLight(const glm::vec3& position = glm::vec3(0.f), const glm::vec3& color = glm::vec3(1.f));
+	PointLight(const std::string& name, const glm::vec3& position = glm::vec3(0.f), const glm::vec3& color = glm::vec3(1.f));
 
 	inline PointLightData get_data() const noexcept { return PointLightData{ _world_pos,_color }; }
 
-	static std::vector<VkDescriptorSetLayoutBinding> get_bindings()noexcept;
+	static std::vector<VkDescriptorSetLayoutBinding> get_bindings() noexcept;
+
+	virtual void display_gui_info() const noexcept;
 };

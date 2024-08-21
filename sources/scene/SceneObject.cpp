@@ -4,7 +4,7 @@
 #include "tiny_obj_loader.h"
 
 std::vector<VkVertexInputAttributeDescription> Vertex::get_attribute_description() {
-	std::vector<VkVertexInputAttributeDescription> descriptions(4);
+	std::vector<VkVertexInputAttributeDescription> descriptions(5);
 	descriptions[0].binding = 0;
 	descriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
 	descriptions[0].location = 0;
@@ -24,6 +24,11 @@ std::vector<VkVertexInputAttributeDescription> Vertex::get_attribute_description
 	descriptions[3].format = VK_FORMAT_R32G32_SFLOAT;
 	descriptions[3].location = 3;
 	descriptions[3].offset = offsetof(Vertex, uv);
+
+	descriptions[4].binding = 0;
+	descriptions[4].format = VK_FORMAT_R32G32B32_SFLOAT;
+	descriptions[4].location = 4;
+	descriptions[4].offset = offsetof(Vertex, tangent);
 
 	return descriptions;
 }
@@ -59,38 +64,61 @@ Mesh Mesh::load_mesh(const std::string& filename) noexcept {
 	if (!warn.empty()) {
 		LOG_WARNING(warn);
 	}
-	Mesh mesh;
-	mesh.set_material_index(-1);
+	Mesh mesh(std::move(shapes[0].name));
 	uint32_t current_index = 0;
 	for (const auto& shape : shapes) {
-		for (const auto& index : shape.mesh.indices) {
-			Vertex vertex{};
-			vertex.pos.x = attrib.vertices[3 * index.vertex_index + 0];
-			vertex.pos.y = attrib.vertices[3 * index.vertex_index + 1];
-			vertex.pos.z = attrib.vertices[3 * index.vertex_index + 2];
+		for (auto& face_vert_k : shape.mesh.num_face_vertices) {
+			if (face_vert_k != 3) {
+				LOG_ERROR("Failed to load the mesh. Its face is not a triangle.");
+			}
+			for (uint32_t v = 0; v < face_vert_k; v++) {
+				auto index = shape.mesh.indices[current_index + v];
+				Vertex vertex{};
 
-			if (!attrib.colors.empty()) {
-				vertex.color.x = attrib.colors[3 * index.vertex_index + 0];
-				vertex.color.y = attrib.colors[3 * index.vertex_index + 1];
-				vertex.color.z = attrib.colors[3 * index.vertex_index + 2];
-			}
-			else {
-				vertex.color = glm::vec3(1.0f);
-			}
+				vertex.pos.x = attrib.vertices[3 * index.vertex_index + 0];
+				vertex.pos.y = attrib.vertices[3 * index.vertex_index + 1];
+				vertex.pos.z = attrib.vertices[3 * index.vertex_index + 2];
 
-			if (!attrib.normals.empty()) {
-				vertex.normal.x = attrib.normals[3 * index.normal_index + 0];
-				vertex.normal.y = attrib.normals[3 * index.normal_index + 1];
-				vertex.normal.z = attrib.normals[3 * index.normal_index + 2];
-				vertex.normal = glm::normalize(vertex.normal);
-			}
+				if (!attrib.colors.empty()) {
+					vertex.color.x = attrib.colors[3 * index.vertex_index + 0];
+					vertex.color.y = attrib.colors[3 * index.vertex_index + 1];
+					vertex.color.z = attrib.colors[3 * index.vertex_index + 2];
+				}
+				else {
+					vertex.color = glm::vec3(1.0f);
+				}
 
-			if (!attrib.texcoords.empty()) {
-				vertex.uv.x = attrib.texcoords[2 * index.texcoord_index + 0];
-				vertex.uv.y = attrib.texcoords[2 * index.texcoord_index + 1];
+				if (!attrib.normals.empty()) {
+					vertex.normal.x = attrib.normals[3 * index.normal_index + 0];
+					vertex.normal.y = attrib.normals[3 * index.normal_index + 1];
+					vertex.normal.z = attrib.normals[3 * index.normal_index + 2];
+					vertex.normal = glm::normalize(vertex.normal);
+				}
+
+				if (!attrib.texcoords.empty()) {
+					vertex.uv.x = attrib.texcoords[2 * index.texcoord_index + 0];
+					vertex.uv.y = attrib.texcoords[2 * index.texcoord_index + 1];
+				}
+				mesh._vertices.emplace_back(std::move(vertex));
+				mesh._indices.push_back(current_index + v);
 			}
-			mesh._vertices.push_back(vertex);
-			mesh._indices.push_back(current_index++);
+			//generate tangent
+
+			Vertex& p1 = mesh._vertices[current_index];
+			Vertex& p2 = mesh._vertices[current_index+1];
+			Vertex& p3 = mesh._vertices[current_index+2];
+
+			glm::vec2 d_uv1 = p1.uv - p2.uv;
+			glm::vec2 d_uv2 = p3.uv - p2.uv;
+			glm::vec3 edge1 = p1.pos - p2.pos;
+			glm::vec3 edge2 = p3.pos - p2.pos;
+
+			glm::mat2x2 uv_mat_inverse = glm::inverse(glm::mat2x2(d_uv1,d_uv2));
+			glm::mat2x3 edge_mat = glm::mat2x3(edge1,edge2);
+			glm::mat2x3 TB_mat = edge_mat * uv_mat_inverse;
+
+			p3.tangent = p2.tangent = p1.tangent = TB_mat[0];
+			current_index += 3;
 		}
 	}
 
@@ -108,29 +136,34 @@ void WorldObject::set_rotation(const glm::quat& rotation) noexcept {
 	_rotation = rotation;
 }
 
-Mesh::Mesh() noexcept : _vertices(), _indices(), _material_index(-1) {}
+Mesh::Mesh(std::string&& name) noexcept :
+	NamedObject(std::move(name)), _vertices(), _indices(), _material_index(-1) {}
 
-Mesh::Mesh(const Mesh& mesh) : 
+Mesh::Mesh(const Mesh& mesh) noexcept :
+	NamedObject(mesh._name),
 	_vertices(mesh._vertices),
 	_indices(mesh._indices),
 	_material_index(mesh._material_index){}
 
-Mesh::Mesh(Mesh&& mesh) :
+Mesh::Mesh(Mesh&& mesh) noexcept :
+	NamedObject(std::move(mesh._name)),
 	_vertices(std::move(mesh._vertices)),
 	_indices(std::move(mesh._indices)),
 	_material_index(std::move(mesh._material_index)) {}
 
-Mesh::Mesh(const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices,
+Mesh::Mesh(const std::string& name, const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices,
 	glm::vec3 world_pos,glm::vec3 size,	glm::quat rotation,
 	int32_t material_index) noexcept :
+	NamedObject(name),
 	WorldObject(world_pos,size,rotation),
 	_vertices(vertices), _indices(indices), _material_index(material_index) {}
 
-Mesh::Mesh(std::vector<Vertex>&& vertices, std::vector<uint32_t>&& indices,
+Mesh::Mesh(std::string&& name, std::vector<Vertex>&& vertices, std::vector<uint32_t>&& indices,
 	glm::vec3 world_pos,
 	glm::vec3 size,
 	glm::quat rotation,
 	int32_t material_index) noexcept :
+	NamedObject(name),
 	WorldObject(world_pos, size, rotation),
 	_vertices(std::move(vertices)), _indices(std::move(indices)), _material_index(material_index) {}
 
@@ -144,6 +177,7 @@ Mesh::Mesh(const char* filename,
 	_rotation = rotation;
 }
 
+void Mesh::set_material(const ObjectMaterial & material) noexcept { _material_index = material.get_index(); }
 
 void Model::set_size(const glm::vec3& size) noexcept {
 	_size = size;
@@ -176,6 +210,7 @@ Model::Model(const Mesh* mesh,
 	uint32_t first_vertex,
 	uint32_t first_index,
 	std::vector<void*> _buffer_ptr) noexcept :
+	SceneObject(mesh->get_name()),
 	WorldObject(mesh->get_pos(), mesh->get_size(), mesh->get_rotation()),
 	_vertices_count(mesh->get_vertices_count()),
 	_indices_count(mesh->get_indices_count()),
@@ -191,6 +226,10 @@ Model::Model(const Mesh* mesh,
 	}
 }
 
+void Model::display_gui_info() const noexcept {
+
+}
+
 std::vector<VkDescriptorSetLayoutBinding> Model::get_bindings() noexcept {
 	std::vector<VkDescriptorSetLayoutBinding> bindings(1);
 
@@ -202,7 +241,8 @@ std::vector<VkDescriptorSetLayoutBinding> Model::get_bindings() noexcept {
 	return bindings;
 }
 
-PointLight::PointLight(const glm::vec3& position, const glm::vec3& color) : _color(color), PositionedObject(position) {}
+PointLight::PointLight(const std::string& name, const glm::vec3& position, const glm::vec3& color) : 
+	SceneObject(name), PositionedObject(position), _color(color) {}
 
 std::vector<VkDescriptorSetLayoutBinding> PointLight::get_bindings() noexcept {
 	std::vector<VkDescriptorSetLayoutBinding> bindings(1);
@@ -213,4 +253,8 @@ std::vector<VkDescriptorSetLayoutBinding> PointLight::get_bindings() noexcept {
 	bindings[0].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
 	return bindings;
+}
+
+void PointLight::display_gui_info() const noexcept {
+
 }

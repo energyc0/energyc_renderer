@@ -7,16 +7,12 @@ constexpr VkDeviceSize INDEX_BUFFER_ALLOCATION_SIZE = 500000 * sizeof(uint32_t);
 constexpr uint32_t GROUP_MODEL_LIMIT = 30;
 constexpr uint32_t POINT_LIGHT_LIMIT = 10;
 
-Scene::Scene(const std::unique_ptr<MaterialManager>& material_manager, const std::vector<SceneObject*>& objects) noexcept :
+Scene::Scene(const std::unique_ptr<MaterialManager>& material_manager) noexcept :
 	_scene_lights_buffer(VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
 		sizeof(PointLight) * POINT_LIGHT_LIMIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT),
 	_material_manager(material_manager) {
 
 	create_descriptor_tools();
-
-	for (const auto& i : objects) {
-		add_object(i);
-	}
 	LOG_STATUS("Created new scene.");
 }
 
@@ -51,17 +47,7 @@ bool Scene::add_mesh(Mesh* mesh) {
 	if (!has_added) {
 		_object_groups.push_back(new ModelGroup(mesh, _descriptor_set_layout, _scene_lights_buffer));
 	}
-	return true;
-}
 
-bool Scene::add_object(SceneObject* object) {
-	_objects.push_back(object);
-	if (dynamic_cast<Mesh*>(object) != nullptr) {
-		return add_mesh(static_cast<Mesh*>(object));
-	}
-	else if (dynamic_cast<PointLight*>(object) != nullptr) {
-		return add_point_light(static_cast<PointLight*>(object));
-	}
 	return true;
 }
 
@@ -212,7 +198,6 @@ void Scene::ModelGroup::push_model(const Mesh* mesh) {
 	_empty_indices -= mesh->get_indices_count() * sizeof(uint32_t);
 	_empty_vertices -= mesh->get_vertices_count() * sizeof(Vertex);
 	_storage_buffer_space -= _descriptor_sets.size();
-	LOG_STATUS("Created model.");
 }
 
 Scene::ModelGroup::ModelGroup(Mesh* object, VkDescriptorSetLayout layout, const VulkanBuffer& scene_lights_buffer) noexcept :

@@ -47,15 +47,16 @@ private:
 
 private:
 	void create_descriptor_tools();
-	bool add_mesh(Mesh* mesh);
-	bool add_point_light(PointLight* light);
 
 public:
-	Scene(const std::unique_ptr<class MaterialManager>& _material_manager, const std::vector<SceneObject*>& objects = {}) noexcept;
+	Scene(const std::unique_ptr<class MaterialManager>& _material_manager) noexcept;
 
 	inline VkDescriptorSetLayout get_descriptor_set_layout()const noexcept { return _descriptor_set_layout; }
 
-	bool add_object(SceneObject* object);
+	bool add_mesh(Mesh* mesh);
+
+	bool add_point_light(PointLight* light);
+
 	void draw(VkCommandBuffer command_buffer, VkPipelineLayout layout) const noexcept;
 
 	~Scene();

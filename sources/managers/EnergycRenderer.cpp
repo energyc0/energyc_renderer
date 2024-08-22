@@ -8,7 +8,7 @@ const std::string cube_filename = std::string(RENDERER_DIRECTORY) + "/assets/cub
 EnergycRenderer::EnergycRenderer(int width, int height, const char* application_name, const char* engine_name) :
 	_window(width, height, application_name),
 	_core(_window.get_window(), application_name, engine_name),
-	_camera(glm::vec3(0.0f, 0.f, -10.f)),
+	_camera(glm::vec3(0.0f, 0.f, -5.f)),
 	_controller(_window, _camera),
 	_material_manager(new MaterialManager()),
 	_current_scene(std::shared_ptr<Scene>(new Scene(_material_manager))),
@@ -17,33 +17,25 @@ EnergycRenderer::EnergycRenderer(int width, int height, const char* application_
 
 	ObjectMaterial rusted_iron = _material_manager->create_new_material(
 		"Rusted iron",
-		(std::string(RENDERER_DIRECTORY) + "/assets/bricks.jpg").c_str(),
+		(std::string(RENDERER_DIRECTORY) + "/assets/rustediron2_basecolor.png").c_str(),
 		(std::string(RENDERER_DIRECTORY) + "/assets/rustediron2_metallic.png").c_str(),
 		(std::string(RENDERER_DIRECTORY) + "/assets/rustediron2_roughness.png").c_str(),
-		(std::string(RENDERER_DIRECTORY) + "/assets/bricks_norm.jpg").c_str());
+		(std::string(RENDERER_DIRECTORY) + "/assets/rustediron2_normal.png").c_str());
 
-	std::shared_ptr<Mesh> sphere1(new Mesh(sphere_filename.c_str()));
-	std::shared_ptr<Mesh> sphere2(new Mesh(*sphere1));
-	std::shared_ptr<Mesh> cube(new Mesh(cube_filename.c_str()));
-	std::shared_ptr<PointLight> light1(
-		new PointLight("My point light", glm::vec3(0.8,1.3,1.2), glm::vec3(1.f), 0.1));
+	std::shared_ptr<PointLight> light(
+		new PointLight("My point light", glm::vec3(0.f), glm::vec3(1.f), 0.1));
 	
-	sphere1->set_pos(glm::vec3(10.f));
-	sphere1->set_size(glm::vec3(3.f));
-	sphere1->set_material(rusted_iron);
+	_current_scene->add_point_light(light);
 
-	sphere2->set_pos(glm::vec3(- 10.f, 0.f, 0.f));
-	sphere2->set_size(glm::vec3(1.f));
-	sphere2->set_material(rusted_iron);
+	std::shared_ptr<Mesh> sphere(new Mesh(sphere_filename.c_str()));
+	sphere->set_material(rusted_iron);
 
-	cube->set_pos(glm::vec3(1.f,-2,1.f));
-	cube->set_size(glm::vec3(3.f));
-	cube->set_material(rusted_iron);
-
-	_current_scene->add_mesh(sphere1);
-	_current_scene->add_mesh(sphere2);
-	_current_scene->add_point_light(light1);
-	_current_scene->add_mesh(cube);
+	for (float x = -6.f; x < 6.f; x += 2.f) {
+		for (float y = -6.f; y < 6.f; y += 2.f) {
+			sphere->set_pos(glm::vec3(x,y,5.f));
+			_current_scene->add_mesh(sphere);
+		}
+	}
 
 	RenderManagerCreateInfo render_manager_create_info{
 		_current_scene,

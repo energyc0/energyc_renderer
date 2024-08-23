@@ -6,8 +6,7 @@ class Scene {
 private:
 	std::vector<SceneObject*> _objects;
 	VkDescriptorSetLayout _descriptor_set_layout;
-	const std::unique_ptr<class MaterialManager>& _material_manager;
-
+	const std::shared_ptr<class MaterialManager>& _material_manager;
 
 	class ModelGroup {
 	private:
@@ -36,7 +35,7 @@ private:
 		ModelGroup(const std::shared_ptr<Mesh>& object, VkDescriptorSetLayout layout, const std::vector<VulkanBuffer*>& scene_lights_buffers) noexcept;
 
 		bool try_add_mesh(const std::shared_ptr<Mesh>& object);
-		void draw(VkCommandBuffer command_buffer, VkPipelineLayout layout, const std::unique_ptr<class MaterialManager>& material_manager);
+		void draw(VkCommandBuffer command_buffer, VkPipelineLayout layout, const std::shared_ptr<MaterialManager>& material_manager);
 
 		inline Model* get_last_pushed_model()const noexcept { return _last_pushed_model; }
 		inline std::vector<VkDescriptorSet> get_descriptor_sets() { return _descriptor_sets; }
@@ -55,7 +54,7 @@ private:
 
 	void copy_light_new_info(const std::shared_ptr<PointLight>& light, uint32_t idx) noexcept;
 public:
-	Scene(const std::unique_ptr<class MaterialManager>& _material_manager) noexcept;
+	Scene(const std::shared_ptr<class MaterialManager>& _material_manager) noexcept;
 
 	inline VkDescriptorSetLayout get_descriptor_set_layout()const noexcept { return _descriptor_set_layout; }
 

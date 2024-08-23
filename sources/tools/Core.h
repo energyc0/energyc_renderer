@@ -26,6 +26,8 @@ private:
 	};
 	SwapchainInfo _swapchain_info;
 
+	VkDeviceSize _min_uniform_offset_alignment;
+
 	static Core* core_ptr;
 public:
 	Core(struct GLFWwindow* window, const char* application_name, const char* engine_name);
@@ -47,6 +49,8 @@ public:
 	static inline uint32_t get_swapchain_image_count() noexcept { return core_ptr->_swapchain_info.image_count; }
 	static inline uint32_t get_image_index() noexcept { return core_ptr->_swapchain_info.image_index; }
 	static inline uint32_t get_current_frame() noexcept { return core_ptr->_swapchain_info.current_frame; }
+
+	static inline VkDeviceSize get_min_uniform_offset_alignment() noexcept { return core_ptr->_min_uniform_offset_alignment; }
 
 	static VkFormat find_appropriate_format(const std::vector<VkFormat>& candidates, VkFormatFeatureFlagBits features, VkImageTiling tiling) noexcept;
 

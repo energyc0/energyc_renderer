@@ -4,8 +4,10 @@
 #include "imgui_impl_glfw.h"
 #include "Window.h"
 #include "Scene.h"
+#include "MaterialManager.h"
 
-GuiInfo::GuiInfo(float delta_time_, Scene& scene_) : delta_time(delta_time_), scene(scene_) {}
+GuiInfo::GuiInfo(float delta_time_, Scene& scene_, const std::shared_ptr<MaterialManager>& material_manager_) :
+	delta_time(delta_time_), scene(scene_), material_manager(material_manager_) {}
 
 RendererGui::RendererGui(const Window& window, VkRenderPass render_pass, GuiInfo& gui_info) : _gui_info(gui_info){
 	create_descriptor_tools();
@@ -59,7 +61,17 @@ void RendererGui::fill_command_buffer(VkCommandBuffer command_buffer) {
 	ImGui::Begin("Information", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_MenuBar );
 	ImGui::Text("FPS: %f \nms: %f", 1000.0f/_gui_info.delta_time, _gui_info.delta_time);
 
-	_gui_info.scene.display_scene_info_gui(nullptr);
+	ImGui::Separator();
+	ImGui::Checkbox("Show scene info", &_gui_info.show_scene_info);
+	if (_gui_info.show_scene_info) {
+		_gui_info.scene.display_scene_info_gui(nullptr);
+	}
+
+	ImGui::Separator();
+	ImGui::Checkbox("Show material info", &_gui_info.show_material_info);
+	if (_gui_info.show_material_info) {
+		_gui_info.material_manager->show_materials_gui_info();
+	}
 
 	ImGui::End();
 

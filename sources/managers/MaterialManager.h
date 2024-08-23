@@ -3,16 +3,24 @@
 #include "VulkanDataObjects.h"
 #include "SceneObject.h"
 
-class ObjectMaterial {
+class ObjectMaterial : public NamedObject {
 protected:
-	std::string _name;
 	int32_t _material_index;
 
 public:
-	inline std::string get_name()const noexcept { return _name; }
 	inline int32_t get_index() const noexcept { return _material_index; }
 
 	ObjectMaterial(const std::string& name, int32_t material_index) noexcept;
+};
+
+struct MaterialUniformData {
+	alignas(16) glm::vec3 albedo;
+	alignas(4) float metallic;
+	alignas(4) float roughness;
+	alignas(4) VkBool32 has_normal;
+
+	MaterialUniformData(const glm::vec3 albedo_, float metallic_, float roughness_, VkBool32 has_normal_) :
+		albedo(albedo_), metallic(metallic_), roughness(roughness_), has_normal(has_normal_) {}
 };
 
 class MaterialManager {
@@ -24,20 +32,19 @@ private:
 		VulkanTexture2D _metallic;
 		VulkanTexture2D _roughness;
 		VulkanTexture2D _normal;
-		glm::vec3 _albedo_const;
-		float _metallic_const;
-		float _roughness_const;
-		VkBool32 _has_normal;
 
+		MaterialUniformData _ubo_data;
+
+		const VulkanBuffer& _material_ubo;
 	public:
 		Material(const std::string& name,
-		int32_t material_index, 
+		int32_t material_index, const VulkanBuffer& material_ubo,
 		glm::vec3 albedo = glm::vec3(1.f),
 		float metallic = 1.f,
 		float roughness = 1.f);
 
 		Material(const std::string& name,
-			int32_t material_index,
+			int32_t material_index, const VulkanBuffer& material_ubo,
 			const char* albedo,
 			const char* metallic,
 			const char* roughness,
@@ -45,7 +52,11 @@ private:
 
 		Material(Material&& material) noexcept;
 
+		inline MaterialUniformData get_uniform_data() const noexcept { return _ubo_data; }
 		inline ObjectMaterial get_object_material() const noexcept { return ObjectMaterial(_name, _material_index); }
+
+		void show_gui_info() noexcept;
+		void copy_uniform_data() const noexcept;
 
 		std::vector<VkDescriptorImageInfo> get_info();
 	};
@@ -54,6 +65,9 @@ private:
 	std::vector<VkDescriptorSet> _descriptor_sets;
 	std::vector<VkDescriptorPool> _descriptor_pools;
 	VkDescriptorSetLayout _descriptor_set_layout;
+
+	//TODO set material limit
+	VulkanBuffer _material_ubo;
 
 	uint32_t _pool_allocations_left = 0;
 
@@ -68,9 +82,16 @@ public:
 		const char* roughness,
 		const char* normal);
 
+	ObjectMaterial create_new_material(const std::string& name,
+		const glm::vec3& albedo,
+		float metallic,
+		float roughness);
+
 	inline VkDescriptorSet get_material_descriptor(Model* model) const noexcept {	return _descriptor_sets[model->get_material_index()]; }
 	inline VkDescriptorSetLayout get_descriptor_set_layout() const noexcept { return _descriptor_set_layout; }
 	static std::vector<VkDescriptorSetLayoutBinding> get_bindings();
+
+	void show_materials_gui_info() const noexcept;
 
 	~MaterialManager();
 };

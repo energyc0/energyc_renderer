@@ -27,7 +27,8 @@ layout(location = 4) in vec3 tangent;
 layout(location = 0) out vec3 frag_pos;
 layout(location = 1) out vec3 frag_color;
 layout(location = 2) out vec2 frag_uv;
-layout(location = 3) out mat3 TBN;
+layout(location = 3) out vec3 frag_normal;
+layout(location = 4) out mat3 TBN;
 
 void main(){
     mat3 model_inverse = inverse(transpose(mat3(transform.model[gl_InstanceIndex])));
@@ -35,10 +36,10 @@ void main(){
     frag_pos = vec3(transform.model[gl_InstanceIndex] * vec4(pos,1.0));
     frag_uv = uv;
 
-    vec3 N = normalize(mat3(transform.model[gl_InstanceIndex]) * normal);
+    frag_normal = normalize(mat3(transform.model[gl_InstanceIndex]) * normal);
     vec3 T = normalize(mat3(transform.model[gl_InstanceIndex]) * tangent);
-    vec3 B = cross(T,N);
-    TBN = mat3(T,B,N);
+    vec3 B = cross(T,frag_normal);
+    TBN = mat3(T,B,frag_normal);
     
     gl_Position = ubo.perspective * ubo.view * vec4(frag_pos, 1.0);
 }

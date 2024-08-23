@@ -5,7 +5,7 @@
 struct RendererSolidCreateInfo {
 	VkRenderPass render_pass;
 	VkDescriptorSetLayout render_unit_set_layout;
-	const std::unique_ptr<class MaterialManager>& material_manager;
+	const std::shared_ptr<class MaterialManager>& material_manager;
 	const std::shared_ptr<class Scene>& scene;
 };
 

@@ -11,7 +11,8 @@ struct PointLight{
 layout(location = 0) in vec3 frag_pos;
 layout(location = 1) in vec3 frag_color;
 layout(location = 2) in vec2 frag_uv;
-layout(location = 3) in mat3 TBN;
+layout(location = 3) in vec3 frag_normal;
+layout(location = 4) in mat3 TBN;
 
 layout(location = 0) out vec4 out_color;
 
@@ -20,6 +21,13 @@ layout(set = 1, binding = 1) uniform PointLight_UBO{
 } light_ubo;
 
 layout(set = 2, binding = 0) uniform sampler2D material[4];
+
+layout(set = 2, binding = 1) uniform Material_const{
+    vec3 albedo;
+    float metalness;
+    float roughness;
+    bool has_normal;
+}ubo_material;
 
 //material
 #define ALBEDO 0
@@ -52,7 +60,7 @@ float GGX_Trowbridge_Reitz(float roughness, float cos_norm_halfway){
 
 float Geometry_Schlick_Beckman(vec3 N, vec3 X, float k){
     return max(dot(N,X),0.0)/
-    (max(dot(N,X),0.0) * (1.0 - k) + k);
+    max((max(dot(N,X),0.0) * (1.0 - k) + k),0.00001);
 }
 
 float Geometry_Smith(vec3 N, vec3 L, vec3 V, float roughness){
@@ -63,7 +71,7 @@ float Geometry_Smith(vec3 N, vec3 L, vec3 V, float roughness){
 vec3 calculate_lighting(PointLight light, vec3 V, vec3 albedo, vec3 N, float metalness, float roughness, vec3 F0){ 
     vec3 L = light.pos.xyz - frag_pos;
     float dist = length(L);
-    float attenuation = 1.0 ;
+    float attenuation = 1.0;
     L = normalize(L);
     vec3 H = normalize(V + L);
 
@@ -85,17 +93,39 @@ vec3 calculate_lighting(PointLight light, vec3 V, vec3 albedo, vec3 N, float met
 }
 
 void main(){
-    vec3 albedo = texture(material[ALBEDO], frag_uv).rgb;
-    vec3 norm = normalize(TBN * (texture(material[NORMAL],frag_uv).xyz * 2.0 - 1.0));
-    float metalness = texture(material[METALLIC], frag_uv).r;
-    float roughness = texture(material[ROUGHNESS],frag_uv).r;
+    vec3 albedo;
+    if(ubo_material.albedo == vec3(-1.0)){
+         albedo = texture(material[ALBEDO], frag_uv).rgb;
+    }else{
+        albedo = ubo_material.albedo;
+    }
 
+    vec3 normal;
+    if(ubo_material.has_normal){
+        normal = normalize(TBN * (texture(material[NORMAL],frag_uv).xyz * 2.0 - 1.0));
+    }else{
+        normal = frag_normal;
+    }
+
+    float metalness;
+    if(ubo_material.metalness == -1.0){
+        metalness = texture(material[METALLIC], frag_uv).r;
+    }else{
+        metalness = ubo_material.metalness;
+    }
+
+    float roughness;
+    if(ubo_material.roughness == -1.0){
+        roughness = texture(material[ROUGHNESS],frag_uv).r;
+    }else{
+        roughness = ubo_material.roughness;
+    }
     vec3 frag_to_camera = normalize(push.camera_pos - frag_pos);
 
     vec3 F0 = mix(vec3(0.04), albedo, metalness);
     vec3 color = vec3(0.01) * albedo;
 
-    color += calculate_lighting(light_ubo.lights[0], frag_to_camera, albedo, norm, metalness, roughness, F0);
+    color += calculate_lighting(light_ubo.lights[0], frag_to_camera, albedo, normal, metalness, roughness, F0);
 
     //color = color / (color + vec3(1.0));
     out_color = vec4(color, 1.0);

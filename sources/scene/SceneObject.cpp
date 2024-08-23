@@ -159,7 +159,7 @@ void WorldObject::set_rotation(const glm::quat& rotation) noexcept {
 }
 
 Mesh::Mesh(std::string&& name) noexcept :
-	NamedObject(std::move(name)), _vertices(), _indices(), _material_index(-1) {}
+	NamedObject(std::move(name)), _vertices(), _indices(), _material_index(0) {}
 
 Mesh::Mesh(const Mesh& mesh) noexcept :
 	NamedObject(mesh._name),
@@ -235,7 +235,10 @@ Model::Model(const Mesh* mesh,
 
 void Model::display_gui_info() noexcept {
 	ImGui::BeginChild(_name.c_str(),ImVec2(0.f,0.f),
-		ImGuiChildFlags_AutoResizeX | ImGuiChildFlags_AutoResizeY | ImGuiChildFlags_AlwaysAutoResize| ImGuiChildFlags_AlwaysUseWindowPadding);
+		ImGuiChildFlags_AutoResizeX |
+		ImGuiChildFlags_AutoResizeY |
+		ImGuiChildFlags_AlwaysAutoResize|
+		ImGuiChildFlags_AlwaysUseWindowPadding | ImGuiChildFlags_FrameStyle);
 	ImGui::Text(_name.c_str());
 	if (ImGui::SliderFloat3("Position: ", glm::value_ptr(_world_pos), -10.f, 10.f, "%.6f", ImGuiSliderFlags_AlwaysClamp) ||
 		ImGui::SliderFloat3("Rotation: ", glm::value_ptr(_rotation), -1.f, 1.f, "%.6f", ImGuiSliderFlags_AlwaysClamp) ||
@@ -270,9 +273,12 @@ std::vector<VkDescriptorSetLayoutBinding> PointLight::get_bindings() noexcept {
 	return bindings;
 }
 
-
 void PointLight::display_gui_info() noexcept {
-	ImGui::BeginChild(_name.c_str(), ImVec2(0.f, 0.f), ImGuiChildFlags_AutoResizeX | ImGuiChildFlags_AutoResizeY | ImGuiChildFlags_AlwaysAutoResize);
+	ImGui::BeginChild(_name.c_str(), ImVec2(0.f, 0.f),
+		ImGuiChildFlags_AutoResizeX |
+		ImGuiChildFlags_AutoResizeY |
+		ImGuiChildFlags_AlwaysAutoResize |
+		ImGuiChildFlags_AlwaysUseWindowPadding | ImGuiChildFlags_FrameStyle);
 	ImGui::Text(_name.c_str());
 	if (ImGui::SliderFloat3("Position: ", glm::value_ptr(_world_pos), -10.f, 10.f, "%.6f", ImGuiSliderFlags_AlwaysClamp) ||
 		ImGui::SliderFloat("Radius: ", &_radius, 0.f, 5.f, "%.6f", ImGuiSliderFlags_AlwaysClamp)) {

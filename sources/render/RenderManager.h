@@ -11,7 +11,7 @@ struct RenderManagerCreateInfo {
 	const class CameraBase& camera;
 	const class Window& window;
 	struct GuiInfo& gui_info;
-	const std::unique_ptr<class MaterialManager>& material_manager;
+	const std::shared_ptr<class MaterialManager>& material_manager;
 };
 
 class RenderManager {

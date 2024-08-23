@@ -98,7 +98,7 @@ void Core::create_instance(GLFWwindow* window, const char* application_name, con
 	application_info.pEngineName = engine_name;
 	application_info.engineVersion = VK_MAKE_VERSION(1, 0, 0);
 	application_info.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-	application_info.apiVersion = VK_API_VERSION_1_0;
+	application_info.apiVersion = VK_API_VERSION_1_2;
 
 	create_info.enabledExtensionCount = extensions.size();
 	create_info.ppEnabledExtensionNames = extensions.data();
@@ -139,6 +139,19 @@ void Core::pick_physical_device() {
 		vkEnumerateDeviceExtensionProperties(phys_dev, nullptr, &extension_properties_count, nullptr);
 		std::vector<VkExtensionProperties> extensions_properties(extension_properties_count);
 		vkEnumerateDeviceExtensionProperties(phys_dev, nullptr, &extension_properties_count, extensions_properties.data());
+
+		VkPhysicalDeviceDescriptorIndexingFeatures descriptor_indexing_features{};
+		descriptor_indexing_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
+
+		VkPhysicalDeviceFeatures2 features2{};
+		features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+		features2.pNext = &descriptor_indexing_features;
+
+		vkGetPhysicalDeviceFeatures2(phys_dev, &features2);
+
+		if (!descriptor_indexing_features.descriptorBindingPartiallyBound) {
+			return false;
+		}
 
 		for (auto& i : required_device_extensions) {
 			bool is_found = false;
@@ -192,6 +205,10 @@ void Core::pick_physical_device() {
 
 void Core::create_device(std::vector<const char*> available_layers) {
 
+	VkPhysicalDeviceProperties phys_dev_properties;
+	vkGetPhysicalDeviceProperties(_physical_device, &phys_dev_properties);
+	_min_uniform_offset_alignment = phys_dev_properties.limits.minUniformBufferOffsetAlignment;
+
 	VkDeviceCreateInfo create_info{};
 	create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
 	
@@ -219,6 +236,14 @@ void Core::create_device(std::vector<const char*> available_layers) {
 		LOG_STATUS("Graphics and present queue family indices are different.");
 	}
 	
+	VkPhysicalDeviceDescriptorIndexingFeatures descriptor_indexing_features{};
+	descriptor_indexing_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES;
+	descriptor_indexing_features.descriptorBindingPartiallyBound = VK_TRUE;
+
+	VkPhysicalDeviceFeatures2 features2{};
+	features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+	features2.pNext = &descriptor_indexing_features;
+
 	create_info.enabledExtensionCount = required_device_extension_count;
 	create_info.ppEnabledExtensionNames = required_device_extensions.data();
 	create_info.queueCreateInfoCount = queue_create_info.size();
@@ -226,6 +251,7 @@ void Core::create_device(std::vector<const char*> available_layers) {
 
 	create_info.enabledLayerCount = available_layers.size();
 	create_info.ppEnabledLayerNames = available_layers.data();
+	create_info.pNext = &features2;
 	VK_ASSERT(vkCreateDevice(_physical_device, &create_info, nullptr, &_device), "vkCreateDevice() - FAILED");
 
 	LOG_STATUS("Created device.");

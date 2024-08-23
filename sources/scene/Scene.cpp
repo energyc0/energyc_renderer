@@ -8,7 +8,7 @@ constexpr VkDeviceSize INDEX_BUFFER_ALLOCATION_SIZE = 500000 * sizeof(uint32_t);
 constexpr uint32_t GROUP_MODEL_LIMIT = 30;
 constexpr uint32_t POINT_LIGHT_LIMIT = 10;
 
-Scene::Scene(const std::unique_ptr<MaterialManager>& material_manager) noexcept :
+Scene::Scene(const std::shared_ptr<MaterialManager>& material_manager) noexcept :
 	_material_manager(material_manager) {
 	create_buffers();
 	create_descriptor_tools();
@@ -278,7 +278,7 @@ bool Scene::ModelGroup::try_add_mesh(const std::shared_ptr<Mesh>& mesh) {
 	return true;
 }
 
-void Scene::ModelGroup::draw(VkCommandBuffer command_buffer, VkPipelineLayout layout, const std::unique_ptr<MaterialManager>& material_manager) {
+void Scene::ModelGroup::draw(VkCommandBuffer command_buffer, VkPipelineLayout layout, const std::shared_ptr<MaterialManager>& material_manager) {
 	_index_buffer->bind_index_buffer(command_buffer, 0);
 	_vertex_buffer->bind_vertex_buffer(command_buffer, 0);
 	vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 1, 1, &_descriptor_sets[Core::get_current_frame()], 0, 0);

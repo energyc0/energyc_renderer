@@ -42,16 +42,12 @@ MaterialManager::Material::Material(Material&& material) noexcept :
 
 void MaterialManager::Material::copy_uniform_data() const noexcept {
 	VkDeviceSize offset = (_material_ubo.get_size() / MATERIAL_BUFFER_LIMIT) * _material_index;
-
 	auto data = get_uniform_data();
 
-	VulkanBuffer staging_buffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, sizeof(MaterialUniformData), VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
-	char* ptr = staging_buffer.map_memory(0, VK_WHOLE_SIZE);
-	memcpy(ptr, &data, sizeof(MaterialUniformData));
-	staging_buffer.unmap_memory();
+	StagingBuffer::copy_data_to_buffer(&data, sizeof(MaterialUniformData));
 
 	auto cmd = CommandManager::begin_single_command_buffer();
-	CommandManager::copy_buffers(cmd, staging_buffer, _material_ubo, 0, offset, sizeof(MaterialUniformData));
+	StagingBuffer::copy_buffers(cmd, _material_ubo, 0, offset);
 	CommandManager::end_single_command_buffer(cmd);
 }
 

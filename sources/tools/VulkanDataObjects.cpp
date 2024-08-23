@@ -149,11 +149,28 @@ VulkanImageView::VulkanImageView() noexcept : _image_view(VK_NULL_HANDLE) {}
 //
 
 VulkanBuffer::VulkanBuffer(VkBufferUsageFlags usage,VkDeviceSize size, VkMemoryPropertyFlags memory_property) noexcept : _ptr(nullptr), _size(size){
+	create_vulkan_buffer(usage, size, memory_property);
+}
+
+VkDescriptorBufferInfo VulkanBuffer::get_info(VkDeviceSize offset, VkDeviceSize range) const noexcept {
+	VkDescriptorBufferInfo info{};
+	info.buffer = _buffer;
+	info.offset = offset;
+	info.range = range;
+	return info;
+}
+
+void VulkanBuffer::recreate(VkBufferUsageFlags usage, VkDeviceSize size, VkMemoryPropertyFlags memory_property) noexcept {
+	free_vulkan_buffer();
+	create_vulkan_buffer(usage, size, memory_property);
+}
+
+void VulkanBuffer::create_vulkan_buffer(VkBufferUsageFlags usage, VkDeviceSize size, VkMemoryPropertyFlags memory_property) noexcept {
 	VkBufferCreateInfo buffer_create_info{};
 	buffer_create_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 	buffer_create_info.usage = usage;
 	buffer_create_info.size = size;
-	buffer_create_info.sharingMode = 
+	buffer_create_info.sharingMode =
 		Core::get_graphics_queue_family_index() == Core::get_present_queue_family_index() ?
 		VK_SHARING_MODE_EXCLUSIVE : VK_SHARING_MODE_CONCURRENT;
 
@@ -170,7 +187,7 @@ VulkanBuffer::VulkanBuffer(VkBufferUsageFlags usage,VkDeviceSize size, VkMemoryP
 
 	VkMemoryRequirements memory_req;
 	vkGetBufferMemoryRequirements(Core::get_device(), _buffer, &memory_req);
-	
+
 	int32_t memory_type_index = find_memory_type(memory_req.memoryTypeBits, memory_property);
 	assert(memory_type_index != -1 && "Failed to find memory type.");
 	VkMemoryAllocateInfo alloc_info{};
@@ -182,20 +199,61 @@ VulkanBuffer::VulkanBuffer(VkBufferUsageFlags usage,VkDeviceSize size, VkMemoryP
 	VK_ASSERT(vkBindBufferMemory(Core::get_device(), _buffer, _memory, 0), "vkBindBufferMemory() - FAILED");
 }
 
-VkDescriptorBufferInfo VulkanBuffer::get_info(VkDeviceSize offset, VkDeviceSize range) const noexcept {
-	VkDescriptorBufferInfo info{};
-	info.buffer = _buffer;
-	info.offset = offset;
-	info.range = range;
-	return info;
-}
-
-VulkanBuffer::~VulkanBuffer() {
+void VulkanBuffer::free_vulkan_buffer() noexcept {
 	if (_ptr != nullptr) {
 		vkUnmapMemory(Core::get_device(), _memory);
 	}
 	vkFreeMemory(Core::get_device(), _memory, nullptr);
 	vkDestroyBuffer(Core::get_device(), _buffer, nullptr);
+}
+
+VulkanBuffer::~VulkanBuffer() {
+	free_vulkan_buffer();
+}
+
+//
+//
+//StagingBuffer
+//
+//
+//
+
+constexpr VkDeviceSize FIRST_STAGING_BUFFER_ALLOCATION = 65536;
+VkDeviceSize StagingBuffer::_last_copied_size = FIRST_STAGING_BUFFER_ALLOCATION;
+StagingBuffer* StagingBuffer::ptr = nullptr;
+
+StagingBuffer::StagingBuffer() : _buffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+	_last_copied_size, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) {
+
+	assert(ptr == nullptr && "There can only be one instance of staging buffer.");
+
+	ptr = this;
+}
+
+void StagingBuffer::copy_buffers(VkCommandBuffer command_buffer, const class VulkanBuffer& dst,
+	VkDeviceSize src_offset, VkDeviceSize dst_offset) noexcept {
+	CommandManager::copy_buffers(command_buffer, ptr->_buffer, dst, src_offset, dst_offset, _last_copied_size);
+}
+
+void StagingBuffer::copy_buffer_to_image(VkCommandBuffer command_buffer, const class VulkanImage& dst_image,
+	VkImageLayout dst_image_layout, const VkImageSubresourceLayers& subresource) noexcept {
+	CommandManager::copy_buffer_to_image(command_buffer, ptr->_buffer, dst_image, dst_image_layout, subresource);
+}
+
+void StagingBuffer::recreate_buffer() noexcept {
+	ptr->_buffer.recreate(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, _last_copied_size, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+}
+
+void StagingBuffer::copy_data_to_buffer(const void* data, size_t size) {
+	_last_copied_size = size;
+
+	if (_last_copied_size > ptr->_buffer.get_size()) {
+		recreate_buffer();
+	}
+
+	char* data_ptr = ptr->_buffer.map_memory(0, _last_copied_size);
+	memcpy(data_ptr, data, size);
+	ptr->_buffer.unmap_memory();
 }
 
 //
@@ -288,6 +346,7 @@ VkDescriptorImageInfo VulkanTexture2D::get_info(VkImageLayout layout) const noex
 
 	return info;
 }
+
 void VulkanTexture2D::load_texture(const char* filename) {
 	int width, height, comp;
 	auto pixels = stbi_load(filename, &width, &height, &comp, STBI_rgb_alpha);
@@ -319,11 +378,7 @@ void VulkanTexture2D::load_texture(const char* filename) {
 	image_view_create_info.type = VK_IMAGE_VIEW_TYPE_2D;
 	_image_view = create_image_view(_image, _format, image_view_create_info);
 
-	VulkanBuffer staging_buffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, width * height * 4, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-
-	void* ptr = staging_buffer.map_memory(0, VK_WHOLE_SIZE);
-	memcpy(ptr, pixels, staging_buffer.get_size());
-	staging_buffer.unmap_memory();
+	StagingBuffer::copy_data_to_buffer(pixels, width * height * 4);
 
 	VkImageSubresourceLayers subresource_layers;
 	subresource_layers.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -345,7 +400,7 @@ void VulkanTexture2D::load_texture(const char* filename) {
 		VK_ACCESS_NONE, VK_ACCESS_TRANSFER_WRITE_BIT,
 		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, subresource_range);
 
-	CommandManager::copy_buffer_to_image(cmd, staging_buffer, *this, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, subresource_layers);
+	StagingBuffer::copy_buffer_to_image(cmd, *this, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, subresource_layers);
 
 	CommandManager::transition_image_layout(cmd, *this,
 		VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,

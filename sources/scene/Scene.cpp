@@ -3,7 +3,7 @@
 #include "CommandManager.h"
 #include "MaterialManager.h"
 
-constexpr VkDeviceSize VERTEX_BUFFER_ALLOCATION_SIZE = 100000 * sizeof(Vertex);
+constexpr VkDeviceSize VERTEX_BUFFER_ALLOCATION_SIZE = 500000 * sizeof(Vertex);
 constexpr VkDeviceSize INDEX_BUFFER_ALLOCATION_SIZE = 500000 * sizeof(uint32_t);
 constexpr uint32_t GROUP_MODEL_LIMIT = 30;
 constexpr uint32_t POINT_LIGHT_LIMIT = 10;
@@ -64,17 +64,13 @@ void Scene::create_descriptor_tools() {
 }
 
 void Scene::copy_light_new_info(const std::shared_ptr<PointLight>& light, uint32_t idx) noexcept {
-	VulkanBuffer staging_buffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, sizeof(PointLightData), VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-
 	PointLightData data = light->get_data();
-	void* ptr = staging_buffer.map_memory(0, VK_WHOLE_SIZE);
-	memcpy(ptr, &data, staging_buffer.get_size());
-	staging_buffer.unmap_memory();
+	StagingBuffer::copy_data_to_buffer(&data, sizeof(PointLightData));
 
 	auto cmd = CommandManager::begin_single_command_buffer();
 
-	CommandManager::copy_buffers(cmd, staging_buffer, *_scene_lights_buffers[Core::get_current_frame()],
-		0, idx * sizeof(PointLight), staging_buffer.get_size());
+	StagingBuffer::copy_buffers(cmd, *_scene_lights_buffers[Core::get_current_frame()],
+		0, idx * sizeof(PointLight));
 
 	CommandManager::end_single_command_buffer(cmd);
 }
@@ -104,18 +100,14 @@ bool Scene::add_point_light(const std::shared_ptr<PointLight>& light) {
 		LOG_STATUS("Point light limit exceded. Aborted adding the light.");
 		return false;
 	}
-	VulkanBuffer staging_buffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, sizeof(PointLightData), VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-
 	PointLightData data = light->get_data();
-	void* ptr = staging_buffer.map_memory(0, VK_WHOLE_SIZE);
-	memcpy(ptr, &data, staging_buffer.get_size());
-	staging_buffer.unmap_memory();
+	StagingBuffer::copy_data_to_buffer(&data, sizeof(PointLightData));
 
 	auto cmd = CommandManager::begin_single_command_buffer();
 
 	for (auto& buffer : _scene_lights_buffers) {
-		CommandManager::copy_buffers(cmd, staging_buffer, *buffer,
-			0, _point_lights.size() * sizeof(PointLight), staging_buffer.get_size());
+		StagingBuffer::copy_buffers(cmd, *buffer,
+			0, _point_lights.size() * sizeof(PointLightData));
 	}
 
 	CommandManager::end_single_command_buffer(cmd);
@@ -216,24 +208,16 @@ void Scene::ModelGroup::push_model(const std::shared_ptr<Mesh>& mesh) {
 	const VkDeviceSize vertex_size = mesh->get_vertices_count() * sizeof(Vertex);
 	const VkDeviceSize index_size = mesh->get_indices_count() * sizeof(uint32_t);
 
-	VulkanBuffer staging_vertex_buffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-		vertex_size,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-	VulkanBuffer staging_index_buffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-		index_size,
-		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-
-	char* ptr = staging_index_buffer.map_memory(0, index_size);
-	memcpy(ptr, mesh->get_index_data(), index_size);
-	staging_index_buffer.unmap_memory();
-
-	ptr = staging_vertex_buffer.map_memory(0, vertex_size);
-	memcpy(ptr, mesh->get_vertex_data(), vertex_size);
-	staging_vertex_buffer.unmap_memory();
+	StagingBuffer::copy_data_to_buffer(mesh->get_index_data(), index_size);
 
 	VkCommandBuffer cmd = CommandManager::begin_single_command_buffer();
-	CommandManager::copy_buffers(cmd, staging_vertex_buffer, *_vertex_buffer, 0, sizeof(Vertex) * _total_vertices, staging_vertex_buffer.get_size());
-	CommandManager::copy_buffers(cmd, staging_index_buffer, *_index_buffer, 0, sizeof(uint32_t) * _total_indices, staging_index_buffer.get_size());
+	StagingBuffer::copy_buffers(cmd, *_index_buffer, 0, sizeof(uint32_t) * _total_indices);
+	CommandManager::end_single_command_buffer(cmd);
+
+	StagingBuffer::copy_data_to_buffer(mesh->get_vertex_data(), vertex_size);
+
+	cmd = CommandManager::begin_single_command_buffer();
+	StagingBuffer::copy_buffers(cmd, *_vertex_buffer, 0, sizeof(Vertex) * _total_vertices);
 	CommandManager::end_single_command_buffer(cmd);
 
 	std::vector<void*> ptrs;

@@ -13,6 +13,8 @@ private:
 
 	Core _core;
 
+	StagingBuffer _staging_buffer;
+
 	CommandManager _command_manager;
 	SyncManager _sync_manager;
 	std::unique_ptr<RenderManager> _render_manager;

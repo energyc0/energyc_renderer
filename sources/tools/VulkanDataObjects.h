@@ -82,6 +82,9 @@ protected:
 	VkDeviceSize _size;
 	char* _ptr;
 
+protected:
+	void create_vulkan_buffer(VkBufferUsageFlags usage, VkDeviceSize size, VkMemoryPropertyFlags memory_property) noexcept;
+	void free_vulkan_buffer() noexcept;
 public:
 	explicit VulkanBuffer(VkBufferUsageFlags usage, VkDeviceSize size, VkMemoryPropertyFlags memory_property) noexcept;
 
@@ -103,9 +106,32 @@ public:
 
 	VkDescriptorBufferInfo get_info(VkDeviceSize offset, VkDeviceSize range) const noexcept;
 
+	void recreate(VkBufferUsageFlags usage, VkDeviceSize size, VkMemoryPropertyFlags memory_property) noexcept;
+
 	~VulkanBuffer();
 
 	friend class CommandManager;
+};
+
+class StagingBuffer {
+private:
+	VulkanBuffer _buffer;
+	static VkDeviceSize _last_copied_size;
+
+	static StagingBuffer* ptr;
+private:
+	static void recreate_buffer() noexcept;
+
+public:
+	StagingBuffer();
+
+	static void copy_buffers(VkCommandBuffer command_buffer,const class VulkanBuffer& dst,
+		VkDeviceSize src_offset, VkDeviceSize dst_offset) noexcept;
+
+	static void copy_buffer_to_image(VkCommandBuffer command_buffer,const class VulkanImage& dst_image,
+		VkImageLayout dst_image_layout, const VkImageSubresourceLayers& subresource) noexcept;
+
+	static void copy_data_to_buffer(const void* data, size_t size);
 };
 
 struct VulkanImageCreateInfo {

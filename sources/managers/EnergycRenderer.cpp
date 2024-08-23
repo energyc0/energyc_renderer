@@ -15,16 +15,6 @@ EnergycRenderer::EnergycRenderer(int width, int height, const char* application_
 	_gui_info(0.f,*_current_scene, _material_manager),
 	_scenes{ _current_scene } {
 
-	/*ObjectMaterial rusted_iron = _material_manager->create_new_material(
-		"Rusted iron",
-		(std::string(RENDERER_DIRECTORY) + "/assets/rustediron2_basecolor.png").c_str(),
-		(std::string(RENDERER_DIRECTORY) + "/assets/rustediron2_metallic.png").c_str(),
-		(std::string(RENDERER_DIRECTORY) + "/assets/rustediron2_roughness.png").c_str(),
-		(std::string(RENDERER_DIRECTORY) + "/assets/rustediron2_normal.png").c_str());*/
-
-	//ObjectMaterial material = _material_manager->create_new_material("material.01",
-	//	glm::vec3(1.f), 0.5f, 0.5f);
-
 	std::shared_ptr<PointLight> light(
 		new PointLight("My point light", glm::vec3(0.f), glm::vec3(1.f), 0.1));
 	

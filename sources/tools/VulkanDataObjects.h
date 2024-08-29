@@ -80,7 +80,7 @@ protected:
 	VkBuffer _buffer;
 	VkDeviceMemory _memory;
 	VkDeviceSize _size;
-	char* _ptr;
+	char* _data_ptr = nullptr;
 
 protected:
 	void create_vulkan_buffer(VkBufferUsageFlags usage, VkDeviceSize size, VkMemoryPropertyFlags memory_property) noexcept;
@@ -90,12 +90,12 @@ public:
 
 	inline VkDeviceSize get_size()const noexcept { return _size; }
 	inline char* map_memory(VkDeviceSize offset, VkDeviceSize size) noexcept {
-		vkMapMemory(Core::get_device(), _memory, offset, size, NULL, (void**)&_ptr);
-		return _ptr;
+		vkMapMemory(Core::get_device(), _memory, offset, size, NULL, (void**)&_data_ptr);
+		return _data_ptr;
 	}
 	inline void unmap_memory() noexcept {
 		vkUnmapMemory(Core::get_device(), _memory);
-		_ptr = nullptr;
+		_data_ptr = nullptr;
 	}
 	inline void bind_index_buffer(VkCommandBuffer command_buffer, VkDeviceSize offset) const noexcept {
 		vkCmdBindIndexBuffer(command_buffer, _buffer, offset, VK_INDEX_TYPE_UINT32);
@@ -111,27 +111,25 @@ public:
 	~VulkanBuffer();
 
 	friend class CommandManager;
+	friend class StagingBuffer;
 };
 
-class StagingBuffer {
+class StagingBuffer : private VulkanBuffer{
 private:
-	VulkanBuffer _buffer;
 	static VkDeviceSize _last_copied_size;
-
-	static StagingBuffer* ptr;
+	static StagingBuffer* _buffer_ptr;
 private:
 	static void recreate_buffer() noexcept;
 
+	static void copy_data_to_buffer(const void* data, size_t size) noexcept;
 public:
 	StagingBuffer();
 
-	static void copy_buffers(VkCommandBuffer command_buffer,const class VulkanBuffer& dst,
+	static void copy_buffers(VkCommandBuffer command_buffer, const void* data, size_t size, const class VulkanBuffer& dst,
 		VkDeviceSize src_offset, VkDeviceSize dst_offset) noexcept;
 
-	static void copy_buffer_to_image(VkCommandBuffer command_buffer,const class VulkanImage& dst_image,
+	static void copy_buffer_to_image(VkCommandBuffer command_buffer, const void* data, size_t size, const class VulkanImage& dst_image,
 		VkImageLayout dst_image_layout, const VkImageSubresourceLayers& subresource) noexcept;
-
-	static void copy_data_to_buffer(const void* data, size_t size);
 };
 
 struct VulkanImageCreateInfo {

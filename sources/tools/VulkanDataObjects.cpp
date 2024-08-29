@@ -148,7 +148,7 @@ VulkanImageView::VulkanImageView() noexcept : _image_view(VK_NULL_HANDLE) {}
 //
 //
 
-VulkanBuffer::VulkanBuffer(VkBufferUsageFlags usage,VkDeviceSize size, VkMemoryPropertyFlags memory_property) noexcept : _ptr(nullptr), _size(size){
+VulkanBuffer::VulkanBuffer(VkBufferUsageFlags usage,VkDeviceSize size, VkMemoryPropertyFlags memory_property) noexcept {
 	create_vulkan_buffer(usage, size, memory_property);
 }
 
@@ -166,6 +166,8 @@ void VulkanBuffer::recreate(VkBufferUsageFlags usage, VkDeviceSize size, VkMemor
 }
 
 void VulkanBuffer::create_vulkan_buffer(VkBufferUsageFlags usage, VkDeviceSize size, VkMemoryPropertyFlags memory_property) noexcept {
+	_size = size;
+
 	VkBufferCreateInfo buffer_create_info{};
 	buffer_create_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
 	buffer_create_info.usage = usage;
@@ -200,7 +202,7 @@ void VulkanBuffer::create_vulkan_buffer(VkBufferUsageFlags usage, VkDeviceSize s
 }
 
 void VulkanBuffer::free_vulkan_buffer() noexcept {
-	if (_ptr != nullptr) {
+	if (_data_ptr != nullptr) {
 		vkUnmapMemory(Core::get_device(), _memory);
 	}
 	vkFreeMemory(Core::get_device(), _memory, nullptr);
@@ -220,40 +222,46 @@ VulkanBuffer::~VulkanBuffer() {
 
 constexpr VkDeviceSize FIRST_STAGING_BUFFER_ALLOCATION = 65536;
 VkDeviceSize StagingBuffer::_last_copied_size = FIRST_STAGING_BUFFER_ALLOCATION;
-StagingBuffer* StagingBuffer::ptr = nullptr;
+StagingBuffer* StagingBuffer::_buffer_ptr = nullptr;
 
-StagingBuffer::StagingBuffer() : _buffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+StagingBuffer::StagingBuffer() : VulkanBuffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
 	_last_copied_size, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) {
 
-	assert(ptr == nullptr && "There can only be one instance of staging buffer.");
+	assert(_buffer_ptr == nullptr && "There can only be one instance of staging buffer.");
 
-	ptr = this;
+	_buffer_ptr = this;
 }
 
-void StagingBuffer::copy_buffers(VkCommandBuffer command_buffer, const class VulkanBuffer& dst,
+void StagingBuffer::copy_buffers(VkCommandBuffer command_buffer, const void* data, size_t size,
+	const class VulkanBuffer& dst,
 	VkDeviceSize src_offset, VkDeviceSize dst_offset) noexcept {
-	CommandManager::copy_buffers(command_buffer, ptr->_buffer, dst, src_offset, dst_offset, _last_copied_size);
+
+	copy_data_to_buffer(data, size);
+	CommandManager::copy_buffers(command_buffer, *_buffer_ptr, dst, src_offset, dst_offset, _last_copied_size);
+
 }
 
-void StagingBuffer::copy_buffer_to_image(VkCommandBuffer command_buffer, const class VulkanImage& dst_image,
+void StagingBuffer::copy_buffer_to_image(VkCommandBuffer command_buffer,
+	const void* data, size_t size, const class VulkanImage& dst_image,
 	VkImageLayout dst_image_layout, const VkImageSubresourceLayers& subresource) noexcept {
-	CommandManager::copy_buffer_to_image(command_buffer, ptr->_buffer, dst_image, dst_image_layout, subresource);
+	copy_data_to_buffer(data, size);
+	CommandManager::copy_buffer_to_image(command_buffer, *_buffer_ptr, dst_image, dst_image_layout, subresource);
 }
 
 void StagingBuffer::recreate_buffer() noexcept {
-	ptr->_buffer.recreate(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, _last_copied_size, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+	_buffer_ptr->recreate(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, _last_copied_size, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 }
 
-void StagingBuffer::copy_data_to_buffer(const void* data, size_t size) {
+void StagingBuffer::copy_data_to_buffer(const void* data, size_t size) noexcept {
 	_last_copied_size = size;
 
-	if (_last_copied_size > ptr->_buffer.get_size()) {
+	if (_last_copied_size > _buffer_ptr->_size) {
 		recreate_buffer();
 	}
 
-	char* data_ptr = ptr->_buffer.map_memory(0, _last_copied_size);
-	memcpy(data_ptr, data, size);
-	ptr->_buffer.unmap_memory();
+	_buffer_ptr->map_memory(0, _last_copied_size);
+	memcpy(_buffer_ptr->_data_ptr, data, size);
+	_buffer_ptr->unmap_memory();
 }
 
 //
@@ -378,8 +386,6 @@ void VulkanTexture2D::load_texture(const char* filename) {
 	image_view_create_info.type = VK_IMAGE_VIEW_TYPE_2D;
 	_image_view = create_image_view(_image, _format, image_view_create_info);
 
-	StagingBuffer::copy_data_to_buffer(pixels, width * height * 4);
-
 	VkImageSubresourceLayers subresource_layers;
 	subresource_layers.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 	subresource_layers.baseArrayLayer = 0;
@@ -400,7 +406,7 @@ void VulkanTexture2D::load_texture(const char* filename) {
 		VK_ACCESS_NONE, VK_ACCESS_TRANSFER_WRITE_BIT,
 		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, subresource_range);
 
-	StagingBuffer::copy_buffer_to_image(cmd, *this, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, subresource_layers);
+	StagingBuffer::copy_buffer_to_image(cmd, pixels, width * height * 4, *this, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, subresource_layers);
 
 	CommandManager::transition_image_layout(cmd, *this,
 		VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,

@@ -95,6 +95,20 @@ void CommandManager::transition_image_layout(VkCommandBuffer command_buffer, con
 	vkCmdPipelineBarrier(command_buffer, src_stage, dst_stage, 0, 0, 0, 0, 0, 1, &barrier);
 }
 
+void CommandManager::set_memory_dependency(VkCommandBuffer command_buffer,
+	VkPipelineStageFlags src_stage, VkPipelineStageFlags dst_stage,
+	VkAccessFlags src_access, VkAccessFlags dst_access) noexcept {
+
+	VkMemoryBarrier memory_barrier{};
+	memory_barrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
+	memory_barrier.srcAccessMask = src_access;
+	memory_barrier.dstAccessMask = dst_access;
+	vkCmdPipelineBarrier(command_buffer,
+		src_stage, dst_stage,
+		NULL,
+		1, &memory_barrier, 0, 0, 0, 0);
+}
+
 VkCommandBuffer CommandManager::begin_single_command_buffer() noexcept {
 	VkCommandBuffer command_buffer;
 	cmd_manager_ptr->_dynamic_command_buffers.push_back(command_buffer);
@@ -113,14 +127,18 @@ VkCommandBuffer CommandManager::begin_single_command_buffer() noexcept {
 
 	return command_buffer;
 }
-VkResult CommandManager::end_single_command_buffer(VkCommandBuffer command_buffer) noexcept {
+
+VkResult CommandManager::end_single_command_buffer(VkCommandBuffer command_buffer,
+	const std::vector<VkSemaphore>& wait_semaphores,
+	const std::vector<VkPipelineStageFlags>& wait_stage_flags,
+	const std::vector<VkSemaphore>& signal_semaphores,
+	VkFence fence) noexcept {
 	VkResult result = vkEndCommandBuffer(command_buffer);
 
 	if (result != VK_SUCCESS)
 		return result;
 
-	result = submit_queue({ command_buffer }, {}, {}, {}, {});
-	vkDeviceWaitIdle(Core::get_device());
+	result = submit_queue({ command_buffer }, wait_semaphores, wait_stage_flags, signal_semaphores, fence);
 	return result;
 }
 

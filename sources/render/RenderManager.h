@@ -17,6 +17,8 @@ struct RenderManagerCreateInfo {
 class RenderManager {
 private:
 	const class CameraBase& _camera;
+	const std::shared_ptr<class Scene> _scene;
+	const std::shared_ptr<class MaterialManager> _material_manager;
 	std::vector<RenderUnitBase*> _render_units;
 
 	std::vector<VulkanBuffer*> _global_uniform_buffers;
@@ -33,7 +35,7 @@ private:
 public:
 	RenderManager(const RenderManagerCreateInfo& render_manager_create_info) noexcept;
 
-	void update_descriptor_sets();
+	void update_descriptor_sets(VkCommandBuffer command_buffer);
 	void render(VkCommandBuffer command_buffer);
 	//global UBO
 	static std::vector<VkDescriptorSetLayoutBinding> get_bindings() noexcept;

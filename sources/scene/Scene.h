@@ -10,6 +10,9 @@ private:
 
 	class ModelGroup {
 	private:
+		//for downloading a mesh
+		VkFence _fence;
+
 		std::vector<Model*> _models;
 		VulkanBuffer* _vertex_buffer;
 		VulkanBuffer* _index_buffer;
@@ -52,7 +55,7 @@ private:
 	void create_buffers();
 	void create_descriptor_tools();
 
-	void copy_light_new_info(const std::shared_ptr<PointLight>& light, uint32_t idx) noexcept;
+	void copy_light_new_info(const std::shared_ptr<PointLight>& light, uint32_t idx, VkCommandBuffer command_buffer) noexcept;
 public:
 	Scene(const std::shared_ptr<class MaterialManager>& _material_manager) noexcept;
 
@@ -62,6 +65,8 @@ public:
 	bool add_point_light(const std::shared_ptr<PointLight>& light);
 
 	void display_scene_info_gui(bool* is_window_opened) const noexcept;
+
+	void update_descriptor_sets(VkCommandBuffer command_buffer) noexcept;
 
 	void draw_solid(VkCommandBuffer command_buffer, VkPipelineLayout layout) const noexcept;
 	void draw_light(VkCommandBuffer command_buffer, VkPipelineLayout layout);

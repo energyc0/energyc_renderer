@@ -1,12 +1,21 @@
 #pragma once
 #include "Core.h"
 
+struct CurrentFrameSync {
+	VkFence fence;
+	VkSemaphore semaphore_to_render;
+
+	std::vector<VkSemaphore> present_image_semaphores;
+	std::vector<VkSemaphore> signal_submit_semaphores;
+	std::vector<VkSemaphore> wait_semaphores;
+	std::vector<VkPipelineStageFlags> wait_submit_flags;
+};
+
 class SyncManager {
 private:
 	std::vector<VkSemaphore> _semaphores_to_render;
 	std::vector<VkSemaphore> _semaphores_to_present;
 	std::vector<VkFence> _fences;
-
 
 	static SyncManager* sync_manager_ptr;
 
@@ -16,9 +25,7 @@ private:
 public:
 	SyncManager();
 
-	inline VkSemaphore get_semaphore_to_render() const noexcept { return _semaphores_to_render[Core::get_current_frame()]; }
-	inline VkSemaphore get_semaphore_to_present() const noexcept { return _semaphores_to_present[Core::get_current_frame()]; }
-	inline VkFence get_fence() const noexcept { return _fences[Core::get_current_frame()]; }
+	CurrentFrameSync get_current_frame_sync_objects() noexcept;
 
 	~SyncManager();
 };

@@ -1,6 +1,8 @@
 #include "RenderManager.h"
 #include "RenderUnitSolid.h"
 #include "Camera.h"
+#include "Scene.h"
+#include "MaterialManager.h"
 #include <array>
 
 struct GlobalData {
@@ -9,7 +11,10 @@ struct GlobalData {
 };
 
 
-RenderManager::RenderManager(const RenderManagerCreateInfo& render_manager_create_info) noexcept: _camera(render_manager_create_info.camera) {
+RenderManager::RenderManager(const RenderManagerCreateInfo& render_manager_create_info) noexcept: 
+	_camera(render_manager_create_info.camera),
+	_scene(render_manager_create_info.scene),
+	_material_manager(render_manager_create_info.material_manager){
 	std::shared_ptr<VulkanImage> depth_image;
 	std::shared_ptr<VulkanImageView> depth_image_view;
 	create_images(depth_image, depth_image_view);
@@ -127,7 +132,7 @@ void RenderManager::create_descritor_tools() {
 	}
 }
 
-void RenderManager::update_descriptor_sets() {
+void RenderManager::update_descriptor_sets(VkCommandBuffer command_buffer) {
 	float aspect = static_cast<float>(Core::get_swapchain_width()) / static_cast<float>(Core::get_swapchain_height());
 
 	GlobalData data;
@@ -137,6 +142,9 @@ void RenderManager::update_descriptor_sets() {
 	data.perspective[1][1] *= -1;
 
 	memcpy(_global_uniform_memory_ptrs[Core::get_current_frame()], &data, sizeof(GlobalData));
+
+	_scene->update_descriptor_sets(command_buffer);
+	_material_manager->update_uniform_buffer(command_buffer);
 }
 
 std::vector<VkDescriptorSetLayoutBinding> RenderManager::get_bindings() noexcept {

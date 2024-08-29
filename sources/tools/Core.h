@@ -21,8 +21,9 @@ private:
 		uint32_t height;
 		VkFormat format;
 		uint32_t image_count;
-		uint32_t image_index;
-		uint32_t current_frame;
+		uint32_t image_index = 0;
+		uint32_t current_frame = 1;
+		uint32_t previous_frame = 0;
 	};
 	SwapchainInfo _swapchain_info;
 
@@ -49,6 +50,7 @@ public:
 	static inline uint32_t get_swapchain_image_count() noexcept { return core_ptr->_swapchain_info.image_count; }
 	static inline uint32_t get_image_index() noexcept { return core_ptr->_swapchain_info.image_index; }
 	static inline uint32_t get_current_frame() noexcept { return core_ptr->_swapchain_info.current_frame; }
+	static inline uint32_t get_previous_frame() noexcept { return core_ptr->_swapchain_info.previous_frame; }
 
 	static inline VkDeviceSize get_min_uniform_offset_alignment() noexcept { return core_ptr->_min_uniform_offset_alignment; }
 
@@ -69,6 +71,7 @@ public:
 	}
 
 	inline void next_frame() noexcept {
+		_swapchain_info.previous_frame = _swapchain_info.current_frame;
 		_swapchain_info.current_frame = (_swapchain_info.current_frame + 1) % _swapchain_info.image_count;
 	};
 

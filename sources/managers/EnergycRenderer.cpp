@@ -5,6 +5,11 @@
 const std::string sphere_filename = std::string(RENDERER_DIRECTORY) + "/assets/sphere.obj";
 const std::string cube_filename = std::string(RENDERER_DIRECTORY) + "/assets/cube.obj";
 
+const std::string rusted_iron_albedo_filename = std::string(RENDERER_DIRECTORY) + "/assets/rustediron2_basecolor.png";
+const std::string rusted_iron_metallic_filename = std::string(RENDERER_DIRECTORY) + "/assets/rustediron2_metallic.png";
+const std::string rusted_iron_roughness_filename = std::string(RENDERER_DIRECTORY) + "/assets/rustediron2_roughness.png";
+const std::string rusted_iron_normal_filename = std::string(RENDERER_DIRECTORY) + "/assets/rustediron2_normal.png";
+
 EnergycRenderer::EnergycRenderer(int width, int height, const char* application_name, const char* engine_name) :
 	_window(width, height, application_name),
 	_core(_window.get_window(), application_name, engine_name),
@@ -16,19 +21,25 @@ EnergycRenderer::EnergycRenderer(int width, int height, const char* application_
 	_scenes{ _current_scene } {
 
 	std::shared_ptr<PointLight> light(
-		new PointLight("My point light", glm::vec3(0.f), glm::vec3(1.f), 0.1));
+		new PointLight("My point light", glm::vec3(10.f), glm::vec3(1.f), 0.1));
 	
+	auto rusted_iron = _material_manager->create_new_material("Rusted iron",
+		rusted_iron_albedo_filename.c_str(),
+		rusted_iron_metallic_filename.c_str(),
+		rusted_iron_roughness_filename.c_str(),
+		rusted_iron_normal_filename.c_str());
+
 	_current_scene->add_point_light(light);
 
 	std::shared_ptr<Mesh> sphere(new Mesh(sphere_filename.c_str()));
-
+	sphere->set_material(rusted_iron);
 	for (float x = -6.f; x < 6.f; x += 2.f) {
 		for (float y = -6.f; y < 6.f; y += 2.f) {
 			sphere->set_pos(glm::vec3(x,y,5.f));
 			_current_scene->add_mesh(sphere);
 		}
 	}
-
+	//_current_scene->add_mesh(sphere);
 	RenderManagerCreateInfo render_manager_create_info{
 		_current_scene,
 		_controller.get_camera(),
@@ -54,38 +65,48 @@ void EnergycRenderer::run() {
 void EnergycRenderer::update_uniform(float delta_time) {
 	_gui_info.delta_time = delta_time;
 
-	_render_manager->update_descriptor_sets();
+	VkCommandBuffer command_buffer = _command_manager.get_frame_command_buffer();
+
+	//if you need to update uniform buffer and the previous frame is writing
+	CommandManager::set_memory_dependency(command_buffer,
+		VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+		VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_TRANSFER_WRITE_BIT);
+
+	_render_manager->update_descriptor_sets(command_buffer);
+
+	CommandManager::set_memory_dependency(command_buffer,
+		VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+		VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_UNIFORM_READ_BIT);
 }
 
 void EnergycRenderer::update_render_tasks(float delta_time) {
-	_command_manager.begin_frame_command_buffer();
-
-	_render_manager->render(_command_manager.get_frame_command_buffer());
+	VkCommandBuffer command_buffer = _command_manager.get_frame_command_buffer();
+	_render_manager->render(command_buffer);
 
 	_command_manager.end_frame_command_buffer();
 }
 
 void EnergycRenderer::draw_frame(float delta_time) {
-	VkFence fence = _sync_manager.get_fence();
-	vkWaitForFences(_core.get_device(), 1, &fence, VK_TRUE, UINT64_MAX);
-	vkResetFences(_core.get_device(), 1, &fence);
+	CurrentFrameSync frame_sync = _sync_manager.get_current_frame_sync_objects();
 
-	VkSemaphore semaphore_to_render = _sync_manager.get_semaphore_to_render();
-	VkSemaphore semaphore_to_present = _sync_manager.get_semaphore_to_present();
-	auto result = _core.acquire_next_image(semaphore_to_render,NULL);
+	vkWaitForFences(_core.get_device(), 1, &frame_sync.fence, VK_TRUE, UINT64_MAX);
+	vkResetFences(_core.get_device(), 1, &frame_sync.fence);
 
+	auto result = _core.acquire_next_image(frame_sync.semaphore_to_render,NULL);
+
+	_command_manager.begin_frame_command_buffer();
 	update_uniform(delta_time);
 	update_render_tasks(delta_time);
 
 	result = CommandManager::submit_queue(
 		{ _command_manager.get_frame_command_buffer() },	//command buffers
-		{ semaphore_to_render },							//wait semaphores
-		{ VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT },	//wait stage flags
-		{ semaphore_to_present },							//signal semaphores
-		fence);												//fence
+		frame_sync.wait_semaphores,							//wait semaphores
+		frame_sync.wait_submit_flags,						//wait stage flags
+		frame_sync.signal_submit_semaphores,				//signal semaphores
+		frame_sync.fence);									//fence
 	VK_ASSERT(result, "vkQueueSubmit() - FAILED");
 
-	result = _core.queue_present({ semaphore_to_present });
+	result = _core.queue_present(frame_sync.present_image_semaphores);
 }
 
 EnergycRenderer::~EnergycRenderer() {

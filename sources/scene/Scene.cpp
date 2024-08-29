@@ -14,6 +14,7 @@ Scene::Scene(const std::shared_ptr<MaterialManager>& material_manager) noexcept 
 	create_descriptor_tools();
 	LOG_STATUS("Created new scene.");
 }
+
 void Scene::create_buffers() {
 	uint32_t image_count = Core::get_swapchain_image_count();
 	_scene_lights_buffers.reserve(image_count);
@@ -22,6 +23,7 @@ void Scene::create_buffers() {
 			sizeof(PointLightData) * POINT_LIGHT_LIMIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT));
 	}
 }
+
 void Scene::draw_solid(VkCommandBuffer command_buffer, VkPipelineLayout layout) const noexcept{
 	for (auto& group : _object_groups) {
 		group->draw(command_buffer,layout, _material_manager);
@@ -31,12 +33,6 @@ void Scene::draw_solid(VkCommandBuffer command_buffer, VkPipelineLayout layout) 
 void Scene::draw_light(VkCommandBuffer command_buffer, VkPipelineLayout layout) {
 	vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
 		layout, 1, 1, &_point_light_descriptor_sets[Core::get_current_frame()], 0, 0);
-	for (uint32_t i = 0; i < _point_lights.size(); i++) {
-		if (!_point_lights[i]->is_copied()) {
-			_point_lights[i]->set_copied();
-			copy_light_new_info(_point_lights[i], i);
-		}
-	}
 	vkCmdDraw(command_buffer, _point_lights.size() * 6, _point_lights.size(), 0, 0);
 }
 
@@ -63,16 +59,20 @@ void Scene::create_descriptor_tools() {
 	VK_ASSERT(vkCreateDescriptorSetLayout(Core::get_device(), &create_info, nullptr, &_descriptor_set_layout), "vkCreateDescriptorSetLayout(), RendererSolid - FAILED");
 }
 
-void Scene::copy_light_new_info(const std::shared_ptr<PointLight>& light, uint32_t idx) noexcept {
+void Scene::update_descriptor_sets(VkCommandBuffer command_buffer) noexcept {
+	for (uint32_t i = 0; i < _point_lights.size(); i++) {
+		if (!_point_lights[i]->is_copied()) {
+			_point_lights[i]->set_copied();
+			copy_light_new_info(_point_lights[i], i,command_buffer);
+		}
+	}
+}
+
+void Scene::copy_light_new_info(const std::shared_ptr<PointLight>& light, uint32_t idx, VkCommandBuffer command_buffer) noexcept {
 	PointLightData data = light->get_data();
-	StagingBuffer::copy_data_to_buffer(&data, sizeof(PointLightData));
 
-	auto cmd = CommandManager::begin_single_command_buffer();
-
-	StagingBuffer::copy_buffers(cmd, *_scene_lights_buffers[Core::get_current_frame()],
-		0, idx * sizeof(PointLight));
-
-	CommandManager::end_single_command_buffer(cmd);
+	StagingBuffer::copy_buffers(command_buffer, &data, sizeof(PointLightData), *_scene_lights_buffers[Core::get_current_frame()],
+		0, idx * sizeof(PointLightData));
 }
 
 bool Scene::add_mesh(const std::shared_ptr<Mesh>& mesh) {
@@ -100,17 +100,6 @@ bool Scene::add_point_light(const std::shared_ptr<PointLight>& light) {
 		LOG_STATUS("Point light limit exceded. Aborted adding the light.");
 		return false;
 	}
-	PointLightData data = light->get_data();
-	StagingBuffer::copy_data_to_buffer(&data, sizeof(PointLightData));
-
-	auto cmd = CommandManager::begin_single_command_buffer();
-
-	for (auto& buffer : _scene_lights_buffers) {
-		StagingBuffer::copy_buffers(cmd, *buffer,
-			0, _point_lights.size() * sizeof(PointLightData));
-	}
-
-	CommandManager::end_single_command_buffer(cmd);
 
 	_point_lights.push_back(light);
 	_objects.push_back(light.get());
@@ -208,17 +197,19 @@ void Scene::ModelGroup::push_model(const std::shared_ptr<Mesh>& mesh) {
 	const VkDeviceSize vertex_size = mesh->get_vertices_count() * sizeof(Vertex);
 	const VkDeviceSize index_size = mesh->get_indices_count() * sizeof(uint32_t);
 
-	StagingBuffer::copy_data_to_buffer(mesh->get_index_data(), index_size);
+	vkWaitForFences(Core::get_device(), 1, &_fence, VK_TRUE, UINT64_MAX);
+	vkResetFences(Core::get_device(), 1, &_fence);
 
 	VkCommandBuffer cmd = CommandManager::begin_single_command_buffer();
-	StagingBuffer::copy_buffers(cmd, *_index_buffer, 0, sizeof(uint32_t) * _total_indices);
-	CommandManager::end_single_command_buffer(cmd);
+	StagingBuffer::copy_buffers(cmd, mesh->get_vertex_data(), vertex_size, *_vertex_buffer, 0, sizeof(Vertex) * _total_vertices);
+	VK_ASSERT(CommandManager::end_single_command_buffer(cmd, {}, {}, {}, _fence), "end_single_command_buffer() - FAILED");
 
-	StagingBuffer::copy_data_to_buffer(mesh->get_vertex_data(), vertex_size);
+	vkWaitForFences(Core::get_device(), 1, &_fence, VK_TRUE, UINT64_MAX);
+	vkResetFences(Core::get_device(), 1, &_fence);
 
 	cmd = CommandManager::begin_single_command_buffer();
-	StagingBuffer::copy_buffers(cmd, *_vertex_buffer, 0, sizeof(Vertex) * _total_vertices);
-	CommandManager::end_single_command_buffer(cmd);
+	StagingBuffer::copy_buffers(cmd, mesh->get_index_data(), index_size, *_index_buffer, 0, sizeof(uint32_t) * _total_indices);
+	VK_ASSERT(CommandManager::end_single_command_buffer(cmd, {}, {}, {},_fence), "end_single_command_buffer() - FAILED");
 
 	std::vector<void*> ptrs;
 	ptrs.reserve(_buffer_data_ptrs.size());
@@ -242,6 +233,11 @@ Scene::ModelGroup::ModelGroup(const std::shared_ptr<Mesh>& object, VkDescriptorS
 	_total_indices(0),
 	_total_vertices(0),
 	_storage_buffer_space(GROUP_MODEL_LIMIT) {
+
+	VkFenceCreateInfo fence_create_info{};
+	fence_create_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+	fence_create_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+	VK_ASSERT(vkCreateFence(Core::get_device(), &fence_create_info, nullptr, &_fence), "vkCreateFence() - FAILED");
 
 	create_descriptor_tools(layout, scene_lights_buffers);
 	create_buffers(object);
@@ -277,6 +273,7 @@ void Scene::ModelGroup::draw(VkCommandBuffer command_buffer, VkPipelineLayout la
 }
 
 Scene::ModelGroup::~ModelGroup() {
+	vkDestroyFence(Core::get_device(), _fence, nullptr);
 	vkDestroyDescriptorPool(Core::get_device(), _descriptor_pool, nullptr);
 	for (auto& buffer : _storage_buffers) {
 		delete buffer;

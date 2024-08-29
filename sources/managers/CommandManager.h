@@ -38,8 +38,16 @@ public:
 		VkImageLayout old_layout, VkImageLayout new_layout,
 		const VkImageSubresourceRange& subresource_range);
 
+	static void set_memory_dependency(VkCommandBuffer command_buffer,
+		VkPipelineStageFlags src_stage, VkPipelineStageFlags dst_stage,
+		VkAccessFlags src_access, VkAccessFlags dst_access) noexcept;
+
 	static VkCommandBuffer begin_single_command_buffer() noexcept;
-	static VkResult end_single_command_buffer(VkCommandBuffer command_buffer) noexcept;
+	static VkResult end_single_command_buffer(VkCommandBuffer command_buffer,
+		const std::vector<VkSemaphore>& wait_semaphores = {},
+		const std::vector<VkPipelineStageFlags>& wait_stage_flags = {},
+		const std::vector<VkSemaphore>& signal_semaphores = {},
+		VkFence fence = VK_NULL_HANDLE) noexcept;
 
 	~CommandManager();
 

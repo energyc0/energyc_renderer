@@ -1,4 +1,5 @@
 #include "CommandManager.h"
+#include "SyncManager.h"
 #include "MaterialManager.h"
 #include "imgui.h"
 #include "glm/gtc/type_ptr.hpp"
@@ -21,15 +22,20 @@ MaterialManager::Material::Material(const std::string& name,
 	_roughness(VK_FORMAT_R8G8B8A8_UNORM, roughness),
 	_normal(VK_FORMAT_R8G8B8A8_UNORM,normal),
 	_ubo_data(glm::vec3(-1.f),-1.f,-1.f,VK_TRUE),
-	_material_ubo(material_ubo)	{}
-
+	_material_ubo(material_ubo)	
+{
+	initialize_uniform_buffer();
+}
 MaterialManager::Material::Material(const std::string& name,
 	int32_t material_index, const VulkanBuffer& material_ubo,
 	glm::vec3 albedo,
 	float metallic,
 	float roughness) : ObjectMaterial(name,material_index),
 	_ubo_data(albedo,metallic,roughness, VK_FALSE),
-	_material_ubo(material_ubo){}
+	_material_ubo(material_ubo) 
+{
+	initialize_uniform_buffer();
+}
 
 MaterialManager::Material::Material(Material&& material) noexcept :
 	ObjectMaterial(material._name, material._material_index),
@@ -38,17 +44,29 @@ MaterialManager::Material::Material(Material&& material) noexcept :
 	_metallic(std::move(material._metallic)),
 	_normal(std::move(material._normal)),
 	_ubo_data(std::move(material._ubo_data)),
-	_material_ubo(material._material_ubo) {}
+	_material_ubo(material._material_ubo) 
+{
+	initialize_uniform_buffer();
+}
 
-void MaterialManager::Material::copy_uniform_data() const noexcept {
+void MaterialManager::Material::initialize_uniform_buffer() const noexcept {
 	VkDeviceSize offset = (_material_ubo.get_size() / MATERIAL_BUFFER_LIMIT) * _material_index;
 	auto data = get_uniform_data();
 
-	StagingBuffer::copy_data_to_buffer(&data, sizeof(MaterialUniformData));
-
 	auto cmd = CommandManager::begin_single_command_buffer();
-	StagingBuffer::copy_buffers(cmd, _material_ubo, 0, offset);
+	StagingBuffer::copy_buffers(cmd, &data, sizeof(MaterialUniformData), _material_ubo, 0, offset);
 	CommandManager::end_single_command_buffer(cmd);
+}
+
+
+void MaterialManager::Material::update_uniform_buffer(VkCommandBuffer command_buffer) noexcept {
+	if (_has_changed) {
+		_has_changed = false;
+		VkDeviceSize offset = (_material_ubo.get_size() / MATERIAL_BUFFER_LIMIT) * _material_index;
+		auto data = get_uniform_data();
+
+		StagingBuffer::copy_buffers(command_buffer, &data, sizeof(MaterialUniformData), _material_ubo, 0, offset);
+	}
 }
 
 std::vector<VkDescriptorImageInfo> MaterialManager::Material::get_info() {
@@ -148,22 +166,23 @@ void MaterialManager::Material::show_gui_info() noexcept {
 		ImGuiChildFlags_AlwaysUseWindowPadding | ImGuiChildFlags_FrameStyle);
 
 	ImGui::Text(_name.c_str());
-	bool has_changed = false;
 	if (_ubo_data.albedo != glm::vec3(-1.f)) {
-		has_changed = has_changed || ImGui::SliderFloat3("Albedo", glm::value_ptr(_ubo_data.albedo), 0.0f, 1.f, "%.3f", ImGuiSliderFlags_AlwaysClamp);
+		_has_changed = ImGui::SliderFloat3("Albedo", glm::value_ptr(_ubo_data.albedo), 0.0f, 1.f, "%.3f", ImGuiSliderFlags_AlwaysClamp) || _has_changed;
 	}
 	if (_ubo_data.metallic != -1.f) {
-		has_changed = has_changed || ImGui::SliderFloat("Metallic", &_ubo_data.metallic, 0.0f, 1.f, "%.3f", ImGuiSliderFlags_AlwaysClamp);
+		_has_changed = ImGui::SliderFloat("Metallic", &_ubo_data.metallic, 0.0f, 1.f, "%.3f", ImGuiSliderFlags_AlwaysClamp) || _has_changed;
 	}
 	if (_ubo_data.roughness != -1.f) {
-		has_changed = has_changed || ImGui::SliderFloat("Roughness", &_ubo_data.roughness, 0.0f, 1.f, "%.3f", ImGuiSliderFlags_AlwaysClamp);
-	}
-
-	if (has_changed) {
-		copy_uniform_data();
+		_has_changed = ImGui::SliderFloat("Roughness", &_ubo_data.roughness, 0.0f, 1.f, "%.3f", ImGuiSliderFlags_AlwaysClamp) || _has_changed;
 	}
 
 	ImGui::EndChild();
+}
+
+void MaterialManager::update_uniform_buffer(VkCommandBuffer command_buffer) noexcept {
+	for (auto& material : _materials) {
+		material->update_uniform_buffer(command_buffer);
+	}
 }
 
 void MaterialManager::show_materials_gui_info() const noexcept {
@@ -187,18 +206,27 @@ ObjectMaterial MaterialManager::create_new_material(const std::string& name,
 	_materials.emplace_back(material);
 
 	auto image_info = material->get_info();
+	VkDeviceSize offset = (_material_ubo.get_size() / MATERIAL_BUFFER_LIMIT) * material_index;
+	auto buffer_info = _material_ubo.get_info(offset, sizeof(MaterialUniformData));
 
+	VkWriteDescriptorSet write[2]{};
+	write[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	write[0].descriptorCount = image_info.size();
+	write[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	write[0].dstBinding = 0;
+	write[0].dstArrayElement = 0;
+	write[0].dstSet = _descriptor_sets[material_index];
+	write[0].pImageInfo = image_info.data();
 
-	VkWriteDescriptorSet write{};
-	write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	write.descriptorCount = image_info.size();
-	write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	write.dstBinding = 0;
-	write.dstArrayElement = 0;
-	write.dstSet = _descriptor_sets[material_index];
-	write.pImageInfo = image_info.data();
+	write[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+	write[1].descriptorCount = 1;
+	write[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+	write[1].dstBinding = 1;
+	write[1].dstArrayElement = 0;
+	write[1].dstSet = _descriptor_sets[material_index];
+	write[1].pBufferInfo = &buffer_info;
 
-	vkUpdateDescriptorSets(Core::get_device(), 1, &write, 0, 0);
+	vkUpdateDescriptorSets(Core::get_device(), 2, write, 0, 0);
 
 	_pool_allocations_left--;
 	LOG_STATUS("Created new material: ", name);
@@ -231,8 +259,6 @@ ObjectMaterial MaterialManager::create_new_material(const std::string& name,
 	write.pBufferInfo = &buffer_info;
 
 	vkUpdateDescriptorSets(Core::get_device(), 1, &write, 0, 0);
-
-	material->copy_uniform_data();
 
 	_pool_allocations_left--;
 	LOG_STATUS("Created new material: ", name);

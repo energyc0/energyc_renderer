@@ -14,6 +14,9 @@ void SyncManager::create_frame_sync_objects() {
 	_semaphores_to_render.resize(image_count);
 	_fences.resize(image_count);
 
+	VkEventCreateInfo event_create_info{};
+	event_create_info.sType = VK_STRUCTURE_TYPE_EVENT_CREATE_INFO;
+
 	VkSemaphoreCreateInfo semaphore_create_info{};
 	semaphore_create_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 	VkFenceCreateInfo fence_create_info{};
@@ -28,6 +31,22 @@ void SyncManager::create_frame_sync_objects() {
 			"create_frame_sync_objects() - FAILED");
 	}
 	LOG_STATUS("Created synchronization objects.");
+}
+
+CurrentFrameSync SyncManager::get_current_frame_sync_objects() noexcept {
+	uint32_t current_frame = Core::get_current_frame();
+
+	CurrentFrameSync sync;
+	sync.fence = _fences[current_frame];
+	sync.semaphore_to_render = _semaphores_to_render[current_frame];
+
+	sync.present_image_semaphores = { _semaphores_to_present[current_frame] };
+	sync.signal_submit_semaphores = { _semaphores_to_present[current_frame] };
+
+	sync.wait_semaphores = { sync.semaphore_to_render };
+	sync.wait_submit_flags = { VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT };
+
+	return sync;
 }
 
 SyncManager::~SyncManager() {

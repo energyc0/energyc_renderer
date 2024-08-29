@@ -34,8 +34,11 @@ private:
 		VulkanTexture2D _normal;
 
 		MaterialUniformData _ubo_data;
-
+		bool _has_changed = false;
 		const VulkanBuffer& _material_ubo;
+
+	private:
+		void initialize_uniform_buffer() const noexcept;
 	public:
 		Material(const std::string& name,
 		int32_t material_index, const VulkanBuffer& material_ubo,
@@ -56,7 +59,7 @@ private:
 		inline ObjectMaterial get_object_material() const noexcept { return ObjectMaterial(_name, _material_index); }
 
 		void show_gui_info() noexcept;
-		void copy_uniform_data() const noexcept;
+		void update_uniform_buffer(VkCommandBuffer command_buffer) noexcept;
 
 		std::vector<VkDescriptorImageInfo> get_info();
 	};
@@ -90,7 +93,8 @@ public:
 	inline VkDescriptorSet get_material_descriptor(Model* model) const noexcept {	return _descriptor_sets[model->get_material_index()]; }
 	inline VkDescriptorSetLayout get_descriptor_set_layout() const noexcept { return _descriptor_set_layout; }
 	static std::vector<VkDescriptorSetLayoutBinding> get_bindings();
-
+	
+	void update_uniform_buffer(VkCommandBuffer command_buffer) noexcept;
 	void show_materials_gui_info() const noexcept;
 
 	~MaterialManager();

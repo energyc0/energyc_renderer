@@ -202,9 +202,9 @@ Mesh::Mesh(const char* filename,
 void Mesh::set_material(const ObjectMaterial & material) noexcept { _material_index = material.get_index(); }
 
 void Model::set_new_transform() noexcept {
-	_transform = glm::mat4_cast(_rotation) *
-		glm::translate(glm::mat4(1.f), _world_pos) *
-		glm::scale(glm::mat4(1.f), _size);
+	_transform = glm::translate(glm::mat4(1.f), _world_pos) *
+		glm::scale(glm::mat4(1.f), _size) * 
+		glm::mat4_cast(_rotation);
 	_is_copied.assign(_is_copied.size(), false);
 }
 
@@ -241,7 +241,7 @@ void Model::display_gui_info() noexcept {
 		ImGuiChildFlags_AlwaysUseWindowPadding | ImGuiChildFlags_FrameStyle);
 	ImGui::Text(_name.c_str());
 	if (ImGui::SliderFloat3("Position: ", glm::value_ptr(_world_pos), -10.f, 10.f, "%.6f", ImGuiSliderFlags_AlwaysClamp) ||
-		ImGui::SliderFloat3("Rotation: ", glm::value_ptr(_rotation), -1.f, 1.f, "%.6f", ImGuiSliderFlags_AlwaysClamp) ||
+		ImGui::SliderFloat3("Rotation: ", glm::value_ptr(_rotation), -360.f, 360.f, "%.6f", ImGuiSliderFlags_AlwaysClamp) ||
 		ImGui::SliderFloat3("Size: ", glm::value_ptr(_size), 0.f, 10.f, "%.6f", ImGuiSliderFlags_AlwaysClamp)) {
 		_is_transformed = true;
 	}
@@ -281,6 +281,7 @@ void PointLight::display_gui_info() noexcept {
 		ImGuiChildFlags_AlwaysUseWindowPadding | ImGuiChildFlags_FrameStyle);
 	ImGui::Text(_name.c_str());
 	if (ImGui::SliderFloat3("Position: ", glm::value_ptr(_world_pos), -10.f, 10.f, "%.6f", ImGuiSliderFlags_AlwaysClamp) ||
+		ImGui::SliderFloat3("Color: ", glm::value_ptr(_color), 0.f, 100.f, "%.6f", ImGuiSliderFlags_AlwaysClamp) ||
 		ImGui::SliderFloat("Radius: ", &_radius, 0.f, 5.f, "%.6f", ImGuiSliderFlags_AlwaysClamp)) {
 		_is_copied.assign(_is_copied.size(), false);
 	}

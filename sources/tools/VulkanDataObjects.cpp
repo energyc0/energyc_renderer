@@ -324,6 +324,23 @@ VulkanImage::~VulkanImage() {
 
 VulkanTextureBase::VulkanTextureBase(VkFormat format) noexcept : VulkanImage(format), _sampler(VK_NULL_HANDLE) {}
 
+VulkanTextureBase::VulkanTextureBase(VkFormat format,
+	uint32_t width,
+	uint32_t height,
+	VkImageUsageFlags usage,
+	uint32_t array_layers, 
+	VkImageViewType type,
+	VkImageAspectFlags aspect) noexcept :
+	VulkanImage(VulkanImageCreateInfo(
+	width, height, format,
+	array_layers, 1, VK_SAMPLE_COUNT_1_BIT,
+	usage, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)),
+	VulkanImageView(_image, format, VulkanImageViewCreateInfo(
+		type, aspect,array_layers,1
+	)) {
+	create_sampler();
+}
+
 VulkanTextureBase::VulkanTextureBase(const VulkanTextureBase& texture) noexcept : _sampler(texture._sampler), VulkanImage(texture._format) {
 	_image = texture._image;
 	_image_view = texture._image_view;
@@ -338,7 +355,10 @@ VulkanTextureBase::~VulkanTextureBase(){
 	vkDestroySampler(Core::get_device(), _sampler, nullptr);
 }
 
-VulkanTexture2D::VulkanTexture2D() : VulkanTextureBase(VK_FORMAT_UNDEFINED) {}
+VulkanTexture2D::VulkanTexture2D() noexcept : VulkanTextureBase(VK_FORMAT_UNDEFINED) {}
+
+VulkanTexture2D::VulkanTexture2D(VkFormat format, uint32_t width, uint32_t height, VkImageUsageFlags usage, VkImageAspectFlags aspect) noexcept :
+	VulkanTextureBase(format,width,height,usage,1, VK_IMAGE_VIEW_TYPE_2D, aspect){}
 
 VulkanTexture2D::VulkanTexture2D(VkFormat format, const char* filename) noexcept : VulkanTextureBase(format){
 	load_texture(filename);

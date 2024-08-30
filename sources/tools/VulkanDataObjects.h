@@ -224,6 +224,14 @@ protected:
 protected:
 	VulkanTextureBase(VkFormat format) noexcept;
 
+	VulkanTextureBase(VkFormat format,
+		uint32_t width,
+		uint32_t height,
+		VkImageUsageFlags usage,
+		uint32_t array_layers,
+		VkImageViewType type,
+		VkImageAspectFlags aspect) noexcept;
+
 	VulkanTextureBase(VulkanTextureBase&& texture) noexcept;
 	VulkanTextureBase(const VulkanTextureBase& texture) noexcept;
 
@@ -237,7 +245,8 @@ private:
 	void load_texture(const char* filename);
 
 public:
-	VulkanTexture2D();
+	VulkanTexture2D() noexcept;
+	VulkanTexture2D(VkFormat format, uint32_t width, uint32_t height, VkImageUsageFlags usage, VkImageAspectFlags aspect)noexcept;
 	VulkanTexture2D(VkFormat format, const char* filename) noexcept;
 	VulkanTexture2D(VulkanTexture2D&& texture) noexcept;
 

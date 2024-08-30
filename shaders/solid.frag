@@ -15,6 +15,7 @@ layout(location = 3) in vec3 frag_normal;
 layout(location = 4) in mat3 TBN;
 
 layout(location = 0) out vec4 out_color;
+layout(location = 1) out vec4 bright_color;
 
 layout(set = 1, binding = 1) uniform PointLight_UBO{
     PointLight lights[POINT_LIGHT_LIMIT];
@@ -127,6 +128,5 @@ void main(){
 
     color += calculate_lighting(light_ubo.lights[0], frag_to_camera, albedo, normal, metalness, roughness, F0);
 
-    //color = color / (color + vec3(1.0));
     out_color = vec4(color, 1.0);
 }

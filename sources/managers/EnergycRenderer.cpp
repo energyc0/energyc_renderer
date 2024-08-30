@@ -21,18 +21,18 @@ EnergycRenderer::EnergycRenderer(int width, int height, const char* application_
 	_scenes{ _current_scene } {
 
 	std::shared_ptr<PointLight> light(
-		new PointLight("My point light", glm::vec3(10.f), glm::vec3(1.f), 0.1));
+		new PointLight("My point light", glm::vec3(0.f), glm::vec3(10.f), 0.1));
 	
-	auto rusted_iron = _material_manager->create_new_material("Rusted iron",
-		rusted_iron_albedo_filename.c_str(),
-		rusted_iron_metallic_filename.c_str(),
-		rusted_iron_roughness_filename.c_str(),
-		rusted_iron_normal_filename.c_str());
+	//auto rusted_iron = _material_manager->create_new_material("Rusted iron",
+	//	rusted_iron_albedo_filename.c_str(),
+	//	rusted_iron_metallic_filename.c_str(),
+	//	rusted_iron_roughness_filename.c_str(),
+	//	rusted_iron_normal_filename.c_str());
 
 	_current_scene->add_point_light(light);
 
 	std::shared_ptr<Mesh> sphere(new Mesh(sphere_filename.c_str()));
-	sphere->set_material(rusted_iron);
+	//sphere->set_material(rusted_iron);
 	for (float x = -6.f; x < 6.f; x += 2.f) {
 		for (float y = -6.f; y < 6.f; y += 2.f) {
 			sphere->set_pos(glm::vec3(x,y,5.f));

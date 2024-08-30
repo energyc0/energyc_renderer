@@ -29,7 +29,17 @@ private:
 	VkDescriptorSetLayout _descriptor_set_layout;
 
 private:
-	void create_images(std::shared_ptr<VulkanImage>& depth_image, std::shared_ptr<VulkanImageView>& depth_image_view);
+
+	struct CreateImagesInfo {
+		std::shared_ptr<VulkanImage> depth_image;
+		std::shared_ptr<VulkanImageView> depth_image_view;
+		std::shared_ptr<VulkanImage> hdr_image;
+		std::shared_ptr<VulkanImageView> hdr_image_view;
+		std::shared_ptr<VulkanTexture2D> bright_image;
+		std::shared_ptr<VulkanTexture2D> staging_color_image;
+	};
+
+	void create_images(CreateImagesInfo& create_images_info);
 	void create_buffers();
 	void create_descritor_tools();
 public:

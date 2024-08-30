@@ -1,5 +1,6 @@
 #include "RenderManager.h"
 #include "RenderUnitSolid.h"
+#include "RenderUnitPostProcess.h"
 #include "Camera.h"
 #include "Scene.h"
 #include "MaterialManager.h"
@@ -15,9 +16,9 @@ RenderManager::RenderManager(const RenderManagerCreateInfo& render_manager_creat
 	_camera(render_manager_create_info.camera),
 	_scene(render_manager_create_info.scene),
 	_material_manager(render_manager_create_info.material_manager){
-	std::shared_ptr<VulkanImage> depth_image;
-	std::shared_ptr<VulkanImageView> depth_image_view;
-	create_images(depth_image, depth_image_view);
+	CreateImagesInfo create_images_info;
+
+	create_images(create_images_info);
 	create_buffers();
 	create_descritor_tools();
 
@@ -25,17 +26,27 @@ RenderManager::RenderManager(const RenderManagerCreateInfo& render_manager_creat
 		render_manager_create_info.scene,
 		render_manager_create_info.material_manager,
 		render_manager_create_info.camera,
-		render_manager_create_info.window,
-		render_manager_create_info.gui_info,
-		depth_image,
-		depth_image_view,
+		create_images_info.depth_image,
+		create_images_info.depth_image_view,
+		create_images_info.hdr_image,
+		create_images_info.hdr_image_view,
+		create_images_info.bright_image,
 		_descriptor_set_layout
 	};
 
-	_render_units = { new RenderUnitSolid(solid_create_info) };
+	RenderUnitPostProcessCreateInfo post_process_create_info{
+		render_manager_create_info.window,
+		render_manager_create_info.gui_info,
+		create_images_info.hdr_image,
+		create_images_info.hdr_image_view,
+		create_images_info.staging_color_image,
+		create_images_info.bright_image
+	};
+
+	_render_units = { new RenderUnitSolid(solid_create_info), new RenderUnitPostProcess(post_process_create_info)};
 }
 
-void RenderManager::create_images(std::shared_ptr<VulkanImage>& depth_image, std::shared_ptr<VulkanImageView>& depth_image_view) {
+void RenderManager::create_images(CreateImagesInfo& create_images_info) {
 
 	VulkanImageCreateInfo image_create_info{};
 	image_create_info.array_layers = 1;
@@ -48,16 +59,39 @@ void RenderManager::create_images(std::shared_ptr<VulkanImage>& depth_image, std
 	image_create_info.memory_property = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 	image_create_info.samples = VK_SAMPLE_COUNT_1_BIT;
 	image_create_info.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-	depth_image = std::shared_ptr<VulkanImage>(new VulkanImage(image_create_info));
+	create_images_info.depth_image = std::shared_ptr<VulkanImage>(new VulkanImage(image_create_info));
 
 	VulkanImageViewCreateInfo view_create_info{};
 	view_create_info.aspect = VK_IMAGE_ASPECT_DEPTH_BIT;
 	view_create_info.layer_count = 1;
 	view_create_info.mip_level_count = 1;
 	view_create_info.type = VK_IMAGE_VIEW_TYPE_2D;
-	depth_image_view = std::shared_ptr<VulkanImageView>(new VulkanImageView(*depth_image.get(), view_create_info));
-
+	create_images_info.depth_image_view = std::shared_ptr<VulkanImageView>(new VulkanImageView(*create_images_info.depth_image, view_create_info));
 	LOG_STATUS("Created depth image and image view.");
+	
+	image_create_info.format = VK_FORMAT_R32G32B32A32_SFLOAT;//97.63% availability
+	image_create_info.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
+	create_images_info.hdr_image = std::shared_ptr<VulkanImage>(new VulkanImage(image_create_info));
+
+	view_create_info.aspect = VK_IMAGE_ASPECT_COLOR_BIT;
+	create_images_info.hdr_image_view = std::shared_ptr<VulkanImageView>(new VulkanImageView(*create_images_info.hdr_image, view_create_info));
+	LOG_STATUS("Created HDR image and image view.");
+
+	image_create_info.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+	create_images_info.bright_image = std::shared_ptr<VulkanTexture2D>(new VulkanTexture2D(
+		VK_FORMAT_R32G32B32A32_SFLOAT,
+		image_create_info.width, image_create_info.height,
+		VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+		VK_IMAGE_ASPECT_COLOR_BIT));
+	LOG_STATUS("Created bright image and image view.");
+
+	create_images_info.staging_color_image = std::shared_ptr<VulkanTexture2D>(new VulkanTexture2D(
+		VK_FORMAT_R32G32B32A32_SFLOAT,
+		image_create_info.width, image_create_info.height,
+		VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT,
+		VK_IMAGE_ASPECT_COLOR_BIT));
+
+	LOG_STATUS("Created staging image and image view for blur.");
 }
 
 void RenderManager::create_buffers() {

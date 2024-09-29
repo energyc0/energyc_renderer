@@ -55,18 +55,18 @@ public:
 class WorldObject : public PositionedObject {
 protected:
 	glm::vec3 _size;
-	glm::quat _rotation;
+	glm::vec3 _rotation;
 
 public:
 	WorldObject(glm::vec3 world_pos = glm::vec3(0.f),
 		glm::vec3 size = glm::vec3(1.f),
-		glm::quat rotation = glm::vec3(0.f));
+		glm::vec3 rotation = glm::vec3(0.f));
 
 	virtual void set_size(const glm::vec3& size) noexcept;
-	virtual void set_rotation(const glm::quat& rotation) noexcept;
+	virtual void set_rotation(const glm::vec3& rotation) noexcept;
 
 	inline glm::vec3 get_size()const noexcept { return _size; }
-	inline glm::quat get_rotation()const noexcept { return _rotation; }
+	inline glm::vec3 get_rotation()const noexcept { return _rotation; }
 };
 
 class Mesh : public WorldObject, public NamedObject {
@@ -85,17 +85,17 @@ public:
 	Mesh(const std::string& name,const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices,
 		glm::vec3 world_pos = glm::vec3(0.f),
 		glm::vec3 size = glm::vec3(1.f),
-		glm::quat rotation = glm::vec3(0.f),
+		glm::vec3 rotation = glm::vec3(0.f),
 		int32_t material_index = -1) noexcept;
 	Mesh(std::string&& name, std::vector<Vertex>&& vertices, std::vector<uint32_t>&& indices,
 		glm::vec3 world_pos = glm::vec3(0.f),
 		glm::vec3 size = glm::vec3(1.f),
-		glm::quat rotation = glm::vec3(0.f),
+		glm::vec3 rotation = glm::vec3(0.f),
 		int32_t material_index = -1) noexcept;
 	Mesh(const char* filename,
 		glm::vec3 world_pos = glm::vec3(0.f),
 		glm::vec3 size = glm::vec3(1.f),
-		glm::quat rotation = glm::vec3(0.f)) noexcept;
+		glm::vec3 rotation = glm::vec3(0.f)) noexcept;
 
 	void set_material(const class ObjectMaterial& material) noexcept;
 	inline int32_t get_material_index() const noexcept { return _material_index; }
@@ -161,7 +161,7 @@ public:
 };
 
 struct PointLightData {
-	//fourth components is raduis
+	//fourth component is raduis
 	alignas(16) glm::vec4 pos;
 	alignas(16) glm::vec3 color;
 };

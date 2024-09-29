@@ -237,6 +237,8 @@ protected:
 
 	void create_sampler();
 public:
+	virtual VkDescriptorImageInfo get_info(VkImageLayout layout) const noexcept = 0;
+
 	virtual ~VulkanTextureBase();
 };
 
@@ -250,5 +252,15 @@ public:
 	VulkanTexture2D(VkFormat format, const char* filename) noexcept;
 	VulkanTexture2D(VulkanTexture2D&& texture) noexcept;
 
-	VkDescriptorImageInfo get_info(VkImageLayout layout) const noexcept;
+	virtual VkDescriptorImageInfo get_info(VkImageLayout layout) const noexcept;
+};
+
+class VulkanCube : public VulkanTextureBase {
+
+public:
+	VulkanCube(VkFormat format, VkImageUsageFlags usage);
+
+	virtual VkDescriptorImageInfo get_info(VkImageLayout layout) const noexcept;
+
+	~VulkanCube();
 };

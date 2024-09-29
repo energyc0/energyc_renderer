@@ -37,6 +37,8 @@ private:
 		std::shared_ptr<VulkanImageView> hdr_image_view;
 		std::shared_ptr<VulkanTexture2D> bright_image;
 		std::shared_ptr<VulkanTexture2D> staging_color_image;
+		std::shared_ptr<VulkanTexture2D> equirectangular_env_map;
+		std::shared_ptr<VulkanCube> skybox;
 	};
 
 	void create_images(CreateImagesInfo& create_images_info);

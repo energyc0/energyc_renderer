@@ -6,11 +6,12 @@
 #include "MaterialManager.h"
 #include <array>
 
+const std::string environment_map_path = std::string(RENDERER_DIRECTORY) + "/assets/thatch_chapel_4k.hdr";
+
 struct GlobalData {
 	glm::mat4 view;
 	glm::mat4 perspective;
 };
-
 
 RenderManager::RenderManager(const RenderManagerCreateInfo& render_manager_create_info) noexcept: 
 	_camera(render_manager_create_info.camera),
@@ -47,7 +48,6 @@ RenderManager::RenderManager(const RenderManagerCreateInfo& render_manager_creat
 }
 
 void RenderManager::create_images(CreateImagesInfo& create_images_info) {
-
 	VulkanImageCreateInfo image_create_info{};
 	image_create_info.array_layers = 1;
 	image_create_info.mip_levels = 1;
@@ -90,8 +90,17 @@ void RenderManager::create_images(CreateImagesInfo& create_images_info) {
 		image_create_info.width, image_create_info.height,
 		VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT,
 		VK_IMAGE_ASPECT_COLOR_BIT));
-
 	LOG_STATUS("Created staging image and image view for blur.");
+
+	create_images_info.equirectangular_env_map = std::shared_ptr<VulkanTexture2D>(new VulkanTexture2D(
+		VK_FORMAT_R32G32B32A32_SFLOAT, environment_map_path.c_str()));
+	LOG_STATUS("Loaded equirectangluar environment map.");
+
+	create_images_info.skybox = std::shared_ptr<VulkanCube>(new VulkanCube(
+		create_images_info.equirectangular_env_map->get_format(),
+		VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT
+	));
+	LOG_STATUS("Created skybox.");
 }
 
 void RenderManager::create_buffers() {

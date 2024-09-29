@@ -145,7 +145,7 @@ Mesh Mesh::load_mesh(const std::string& filename) noexcept {
 	return mesh;
 }
 
-WorldObject::WorldObject(glm::vec3 world_pos,glm::vec3 size,glm::quat rotation):
+WorldObject::WorldObject(glm::vec3 world_pos,glm::vec3 size,glm::vec3 rotation):
 	PositionedObject(world_pos), _size(size), _rotation(rotation){}
 
 void WorldObject::set_size(const glm::vec3& size) noexcept {
@@ -153,7 +153,7 @@ void WorldObject::set_size(const glm::vec3& size) noexcept {
 	_is_transformed = true;
 }
 
-void WorldObject::set_rotation(const glm::quat& rotation) noexcept {
+void WorldObject::set_rotation(const glm::vec3& rotation) noexcept {
 	_rotation = rotation;
 	_is_transformed = true;
 }
@@ -174,7 +174,7 @@ Mesh::Mesh(Mesh&& mesh) noexcept :
 	_material_index(std::move(mesh._material_index)) {}
 
 Mesh::Mesh(const std::string& name, const std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices,
-	glm::vec3 world_pos,glm::vec3 size,	glm::quat rotation,
+	glm::vec3 world_pos,glm::vec3 size,	glm::vec3 rotation,
 	int32_t material_index) noexcept :
 	NamedObject(name),
 	WorldObject(world_pos,size,rotation),
@@ -183,7 +183,7 @@ Mesh::Mesh(const std::string& name, const std::vector<Vertex>& vertices, const s
 Mesh::Mesh(std::string&& name, std::vector<Vertex>&& vertices, std::vector<uint32_t>&& indices,
 	glm::vec3 world_pos,
 	glm::vec3 size,
-	glm::quat rotation,
+	glm::vec3 rotation,
 	int32_t material_index) noexcept :
 	NamedObject(name),
 	WorldObject(world_pos, size, rotation),
@@ -192,7 +192,7 @@ Mesh::Mesh(std::string&& name, std::vector<Vertex>&& vertices, std::vector<uint3
 Mesh::Mesh(const char* filename,
 	glm::vec3 world_pos,
 	glm::vec3 size,
-	glm::quat rotation) noexcept :
+	glm::vec3 rotation) noexcept :
 	Mesh(load_mesh(filename)) {
 	_world_pos = world_pos;
 	_size = size;
@@ -204,7 +204,7 @@ void Mesh::set_material(const ObjectMaterial & material) noexcept { _material_in
 void Model::set_new_transform() noexcept {
 	_transform = glm::translate(glm::mat4(1.f), _world_pos) *
 		glm::scale(glm::mat4(1.f), _size) * 
-		glm::mat4_cast(_rotation);
+		glm::mat4_cast(glm::quat(glm::radians(_rotation)));
 	_is_copied.assign(_is_copied.size(), false);
 }
 

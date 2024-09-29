@@ -377,7 +377,16 @@ VkDescriptorImageInfo VulkanTexture2D::get_info(VkImageLayout layout) const noex
 
 void VulkanTexture2D::load_texture(const char* filename) {
 	int width, height, comp;
-	auto pixels = stbi_load(filename, &width, &height, &comp, STBI_rgb_alpha);
+	void* pixels;
+	if (_format == VK_FORMAT_R32G32B32A32_SFLOAT || _format == VK_FORMAT_R16G16B16A16_SFLOAT) {
+		pixels = stbi_loadf(filename, &width, &height, &comp, STBI_rgb_alpha);
+	}
+	else if (_format == VK_FORMAT_R8G8B8A8_UNORM || _format == VK_FORMAT_R8G8B8A8_SRGB) {
+		pixels = stbi_load(filename, &width, &height, &comp, STBI_rgb_alpha);
+	}
+	else {
+		LOG_ERROR("Failed to create the image, undefined format: ", filename);
+	}
 
 	if (!pixels) {
 		LOG_ERROR("Failed to load the image: ", filename);
@@ -387,6 +396,17 @@ void VulkanTexture2D::load_texture(const char* filename) {
 
 	_width = width;
 	_height = height;
+	VkDeviceSize image_size = _width * _height;
+
+	switch (_format)
+	{
+	case VK_FORMAT_R32G32B32A32_SFLOAT: image_size *= 16; break;
+	case VK_FORMAT_R16G16B16A16_SFLOAT: image_size *= 8; break;
+	case VK_FORMAT_R8G8B8A8_UNORM:
+	case VK_FORMAT_R8G8B8A8_SRGB: image_size *= 4; break;
+	default:
+		LOG_ERROR("Failed to create the image, undefined format: ", filename);
+	}
 
 	VulkanImageCreateInfo image_create_info{};
 	image_create_info.width = width;
@@ -426,7 +446,7 @@ void VulkanTexture2D::load_texture(const char* filename) {
 		VK_ACCESS_NONE, VK_ACCESS_TRANSFER_WRITE_BIT,
 		VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, subresource_range);
 
-	StagingBuffer::copy_buffer_to_image(cmd, pixels, width * height * 4, *this, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, subresource_layers);
+	StagingBuffer::copy_buffer_to_image(cmd, pixels, image_size, *this, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, subresource_layers);
 
 	CommandManager::transition_image_layout(cmd, *this,
 		VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
@@ -457,3 +477,17 @@ void VulkanTextureBase::create_sampler() {
 	create_info.compareEnable = VK_FALSE;
 	VK_ASSERT(vkCreateSampler(Core::get_device(), &create_info, nullptr, &_sampler), "vkCreateSampler() - FAILED");
 }
+
+VulkanCube::VulkanCube(VkFormat format, VkImageUsageFlags usage) : 
+	VulkanTextureBase(format, 1024,1024,
+		usage, 6, VK_IMAGE_VIEW_TYPE_CUBE, VK_IMAGE_ASPECT_COLOR_BIT){}
+
+VkDescriptorImageInfo VulkanCube::get_info(VkImageLayout layout) const noexcept {
+	VkDescriptorImageInfo info{};
+	info.imageLayout = layout;
+	info.imageView = _image_view;
+	info.sampler = _sampler;
+	return info;
+}
+
+VulkanCube::~VulkanCube(){}
